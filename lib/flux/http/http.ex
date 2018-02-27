@@ -5,8 +5,7 @@ defmodule Flux.HTTP do
   require Logger
   alias Flux.Conn
   alias Flux.HTTP.Parser
-
-  @framework Application.get_env(:flux, :framework, Flux.Framework.Default)
+  alias Flux.Websocket
 
   @spec init(pid, identifier, pid, atom, keyword) :: atom
   def init(parent_pid, ref, socket, transport, opts) do
@@ -35,6 +34,7 @@ defmodule Flux.HTTP do
       {^success, socket, msg} ->
         {socket, msg}
         |> handle_in(conn)
+      other -> IO.inspect other
     end
     |> receive_loop()
   end
@@ -42,6 +42,7 @@ defmodule Flux.HTTP do
   defp handle_in({_socket, data}, conn) do
     conn
     |> Parser.parse(data)
+    |> maybe_upgrade()
     |> call_endpoint()
     |> return()
   end
@@ -51,7 +52,12 @@ defmodule Flux.HTTP do
     conn
   end
 
-  defp call_endpoint(%{opts: %{endpoint: endpoint}} = conn) do
+  defp maybe_upgrade(%Conn{upgrade: :websocket} = conn), do: Websocket.upgrade(conn)
+
+  defp maybe_upgrade(conn), do: conn
+
+  defp call_endpoint(%Conn{opts: %{endpoint: nil}} = conn), do: conn
+  defp call_endpoint(%Conn{opts: %{endpoint: endpoint}} = conn) do
     Flux.Adapters.Plug.upgrade(conn, endpoint)
   end
 

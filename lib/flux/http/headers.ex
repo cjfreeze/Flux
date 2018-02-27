@@ -1,4 +1,6 @@
 defmodule Flux.HTTP.Headers do
+  def handle_header(conn, "upgrade", "websocket"), do: %{conn | upgrade: :websocket}
+
   def handle_header(%{keep_alive: true} = conn, "connection", "keep-alive"), do: conn
 
   def handle_header(%{resp_headers: resp_headers} = conn, "connection" = c, "keep-alive" = k) do

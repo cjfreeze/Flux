@@ -29,13 +29,18 @@ defmodule Flux.HTTP.Response do
         method: method,
         resp_headers: headers,
         resp_body: body,
-        accept_encoding: accepted_codings
+        accept_encoding: accepted_codings,
+        resp_type: resp_type
       }) do
     with {:ok, coding} <- Encoder.which_coding(accepted_codings),
-         {:ok, encoded_body} <- Encoder.encode(coding, body) do
+         {:ok, encoded_body} <- Encoder.encode(coding, body),
+         {:resp_type, :normal} <- {:resp_type, resp_type} do
       headers = add_encoding_header(headers, coding)
       response(status, version, encoded_body, headers, method)
     else
+      {:resp_type, :raw} ->
+        raw_response(status, version, headers)
+
       {:error, status} ->
         error_response(status, version, headers, method)
     end
@@ -50,6 +55,15 @@ defmodule Flux.HTTP.Response do
     ]
     |> add_headers(headers)
     |> add_body(body, method)
+  end
+
+  def raw_response(status, version, headers) do
+    [
+      status_line(version, status)
+    ]
+    |> add_headers(headers)
+    |> add_body(nil, nil)
+    |> IO.inspect
   end
 
   def error_response(status, version, headers, method) do
@@ -98,8 +112,12 @@ defmodule Flux.HTTP.Response do
 
   defp add_body(response, _, :head), do: [response | "\r\n"]
 
+  defp add_body(reponse, nil, _) do
+    [reponse | ["\r\n"]]
+  end
+
   defp add_body(reponse, body, _) do
-    [reponse | [["\r\n", body]]]
+    [reponse | ["\r\n", body]]
   end
 
   def iodata_byte_size(iodata_or_binary)
@@ -108,6 +126,7 @@ defmodule Flux.HTTP.Response do
     iodata_byte_size(head) + iodata_byte_size(tail)
   end
 
+  def iodata_byte_size(nil), do: 0
   def iodata_byte_size([]), do: 0
   def iodata_byte_size(binary), do: byte_size(binary)
 

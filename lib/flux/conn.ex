@@ -21,7 +21,9 @@ defmodule Flux.Conn do
             accept_encoding: %{},
             accept: %{},
             accept_charset: %{},
-            accept_language: %{}
+            accept_language: %{},
+            upgrade: nil,
+            resp_type: :normal
 
   @typedoc "The state of a connection."
   @type t :: %__MODULE__{
@@ -47,7 +49,9 @@ defmodule Flux.Conn do
           accept_encoding: %{coding => qvalue},
           accept: %{mimetype => qvalue},
           accept_charset: %{charset => qvalue},
-          accept_language: %{language => qvalue}
+          accept_language: %{language => qvalue},
+          upgrade: atom,
+          resp_type: atom
         }
 
   @type coding :: binary

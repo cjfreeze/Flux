@@ -115,9 +115,9 @@ defmodule Flux.HTTP.Parser do
          val
        ),
        ["\n\r", "\r\n", "\n", "\r"] do
-    key = String.downcase(key)
-    val = String.downcase(val)
-    new_state = Flux.HTTP.Headers.handle_header(state, key, val)
+    downcased_key = String.downcase(key)
+    downcased_val = String.downcase(val)
+    new_state = Flux.HTTP.Headers.handle_header(state, downcased_key, downcased_val)
     # Move this into a callback variable passed in from Flux.HTTP that defaults to Headers
 
     %{new_state | data: rest, req_headers: [{key, val} | headers]}

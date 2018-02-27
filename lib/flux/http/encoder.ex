@@ -20,6 +20,7 @@ defmodule Flux.HTTP.Encoder do
   defp check_q({_, 0}), do: {:error, 406}
   defp check_q({coding, _}), do: {:ok, coding}
 
+  def encode(_, nil), do: {:ok, nil}
   def encode(coding, body) when coding in ["identity", "*"], do: {:ok, body}
   def encode("gzip", body), do: {:ok, :zlib.gzip(body)}
   def encode(_, _), do: {:error, 406}
