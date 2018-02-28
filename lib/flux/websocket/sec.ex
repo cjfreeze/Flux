@@ -11,7 +11,8 @@ defmodule Flux.Websocket.Sec do
   end
 
   def do_find({key, val}) do
-    IO.inspect key
+    IO.inspect(key)
+
     if String.downcase(key) == "sec-websocket-key" do
       val
     else
@@ -23,6 +24,4 @@ defmodule Flux.Websocket.Sec do
     :crypto.hash(:sha, key <> @guid)
     |> Base.encode64()
   end
-
-  defp do_sign(_), do: :error
 end

@@ -34,7 +34,9 @@ defmodule Flux.HTTP do
       {^success, socket, msg} ->
         {socket, msg}
         |> handle_in(conn)
-      other -> IO.inspect other
+
+      other ->
+        IO.inspect(other)
     end
     |> receive_loop()
   end
@@ -57,6 +59,7 @@ defmodule Flux.HTTP do
   defp maybe_upgrade(conn), do: conn
 
   defp call_endpoint(%Conn{opts: %{endpoint: nil}} = conn), do: conn
+
   defp call_endpoint(%Conn{opts: %{endpoint: endpoint}} = conn) do
     Flux.Adapters.Plug.upgrade(conn, endpoint)
   end

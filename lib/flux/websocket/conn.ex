@@ -13,13 +13,14 @@ defmodule Flux.Websocket.Conn do
             remote_ip: nil,
             ws_accept: nil,
             ws_protocol: nil,
-            fin?: false,
+            fin: false,
             reserved: %{},
             opcode: nil,
             mask?: false,
             payload_length: nil,
             mask: nil,
-            payload: nil
+            payload: nil,
+            frame: nil
 
   @typedoc "The state of a connection."
   @type t :: %__MODULE__{
@@ -37,13 +38,14 @@ defmodule Flux.Websocket.Conn do
           remote_ip: binary,
           ws_accept: iodata,
           ws_protocol: iodata,
-          fin?: boolean,
+          fin: boolean,
           reserved: map,
           opcode: atom,
           mask?: boolean,
           payload_length: non_neg_integer,
           mask: non_neg_integer,
-          payload: bitstring
+          payload: bitstring,
+          frame: bitstring
         }
 
   @type coding :: binary

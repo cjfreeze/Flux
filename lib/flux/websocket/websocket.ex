@@ -1,15 +1,15 @@
 defmodule Flux.Websocket do
   require Logger
-  alias Flux.Websocket.{Conn, Sec, Parser}
-  alias Flux.HTTP.Response
+  alias Flux.Websocket.{Conn, Sec, Parser, Opcode, Response}
+  alias Flux.HTTP.Response, as: HTTPResponse
 
   def receive_loop(:stop), do: :ok
 
-    def receive_loop(%{transport: transport, socket: socket} = conn) do
+  def receive_loop(%{transport: transport, socket: socket} = conn) do
     transport.setopts(socket, active: :once)
     {success, _, _} = conn.transport.messages()
-    IO.puts "\n\nwaiting for websocket requests\n\n"
-    # :gen_tcp.send(socket, <<1::1, 0::1, 0::1, 0::1, 0::1, 9::4, 0::7>>)
+    IO.puts("\n\nwaiting for websocket requests\n\n")
+    Agent.update(__MODULE__, fn _ -> socket end)
     receive do
       {^success, socket, msg} ->
         {socket, msg}
@@ -21,6 +21,7 @@ defmodule Flux.Websocket do
   defp handle_in({_socket, data}, conn) do
     conn
     |> Parser.parse(data)
+    |> dispatch()
   end
 
   defp handle_in(msg, conn) do
@@ -28,7 +29,20 @@ defmodule Flux.Websocket do
     conn
   end
 
+  defp dispatch(%{opcode: unquote(Opcode.from_atom(:ping))} = conn) do
+    Logger.info("Received ping")
+    conn
+    |> Response.build_pong_frame()
+    |> Response.send()
+  end
+
+  defp dispatch(%{opcode: unquote(Opcode.from_atom(:pong))} = conn) do
+    Logger.info("Received pong")
+    conn
+  end
+
   def upgrade(conn) do
+    Agent.start_link(fn -> conn.socket end, name: __MODULE__)
     struct(Conn, Map.from_struct(conn))
     |> Map.put(:ws_protocol, get_ws_protocol(conn))
     |> Sec.sign(conn)
@@ -44,13 +58,17 @@ defmodule Flux.Websocket do
     |> put_handshake_headers(conn)
     |> Map.put(:status, 101)
     |> Map.put(:resp_type, :raw)
-    |> Response.build()
-    |> Response.send_response(http_conn)
+    |> HTTPResponse.build()
+    |> HTTPResponse.send_response(http_conn)
+
     receive do
-      other -> IO.inspect(other, label: "flush")
-      :ok
-      after 0 -> :ok
+      other ->
+        IO.inspect(other, label: "flush")
+        :ok
+    after
+      0 -> :ok
     end
+
     conn
   end
 

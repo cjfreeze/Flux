@@ -63,7 +63,7 @@ defmodule Flux.HTTP.Response do
     ]
     |> add_headers(headers)
     |> add_body(nil, nil)
-    |> IO.inspect
+    |> IO.inspect()
   end
 
   def error_response(status, version, headers, method) do
