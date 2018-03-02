@@ -9,7 +9,7 @@ defmodule Flux.Adapters.Plug do
       peer: conn.peer,
       port: conn.port,
       remote_ip: conn.remote_ip,
-      query_string: "",
+      query_string: conn.query || "",
       req_headers: conn.req_headers,
       request_path: IO.iodata_to_binary(conn.uri),
       scheme: conn.opts.scheme

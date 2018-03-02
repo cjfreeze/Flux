@@ -1,13 +1,16 @@
 defmodule Flux.Websocket.Parser do
   import Bitwise
 
-  def parse(conn, data) do
-    conn
+  alias Flux.Websocket.Frame
+
+  def parse(data) do
+    %Frame{}
     |> Map.put(:data, data)
     |> parse_frame()
     |> parse_extended_payload_length()
     |> parse_masking_key()
     |> parse_payload()
+    |> Map.delete(data: data)
   end
 
   defp parse_frame(
@@ -27,7 +30,7 @@ defmodule Flux.Websocket.Parser do
       conn
       | fin: fin == 1,
         reserved: reserved,
-        opcode: opcode,
+        opcode: Frame.opcode_to_atom(opcode),
         mask?: mask == 1,
         payload_length: payload_len,
         data: rest

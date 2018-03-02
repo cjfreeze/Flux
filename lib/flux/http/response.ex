@@ -63,7 +63,6 @@ defmodule Flux.HTTP.Response do
     ]
     |> add_headers(headers)
     |> add_body(nil, nil)
-    |> IO.inspect()
   end
 
   def error_response(status, version, headers, method) do
@@ -95,7 +94,7 @@ defmodule Flux.HTTP.Response do
   defp content_length_header(body) do
     content_length =
       body
-      |> iodata_byte_size()
+      |> IO.iodata_length()
       |> Integer.to_string()
 
     ["content-length: ", content_length, "\r\n"]
@@ -119,16 +118,6 @@ defmodule Flux.HTTP.Response do
   defp add_body(reponse, body, _) do
     [reponse | ["\r\n", body]]
   end
-
-  def iodata_byte_size(iodata_or_binary)
-
-  def iodata_byte_size([head | tail]) do
-    iodata_byte_size(head) + iodata_byte_size(tail)
-  end
-
-  def iodata_byte_size(nil), do: 0
-  def iodata_byte_size([]), do: 0
-  def iodata_byte_size(binary), do: byte_size(binary)
 
   # 1×× Informational
   defp status_message(100), do: "Continue"

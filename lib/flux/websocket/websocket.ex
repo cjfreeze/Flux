@@ -1,53 +1,74 @@
 defmodule Flux.Websocket do
   require Logger
-  alias Flux.Websocket.{Conn, Sec, Parser, Opcode, Response}
+  alias Flux.Websocket
+  alias Flux.Websocket.{Sec, Parser, Response}
   alias Flux.HTTP.Response, as: HTTPResponse
 
   def receive_loop(:stop), do: :ok
 
-  def receive_loop(%{transport: transport, socket: socket} = conn) do
+  def receive_loop(%{transport: transport, socket: socket} = conn, {handler, state}) do
     transport.setopts(socket, active: :once)
     {success, _, _} = conn.transport.messages()
-    IO.puts("\n\nwaiting for websocket requests\n\n")
     Agent.update(__MODULE__, fn _ -> socket end)
     receive do
       {^success, socket, msg} ->
         {socket, msg}
-        |> handle_in(conn)
+        |> handle_in(conn, {handler, state})
+      info ->
+        handler.handle_info(info, conn, state)
+      # TODO detect remote close and invoke handler.terminate
     end
-    |> receive_loop()
+    |> return(handler)
   end
 
-  defp handle_in({_socket, data}, conn) do
-    conn
-    |> Parser.parse(data)
-    |> dispatch()
+  defp handle_in({_socket, data}, conn, {handler, state}) do
+    data
+    |> Parser.parse()
+    |> dispatch(conn, {handler, state})
   end
 
-  defp handle_in(msg, conn) do
-    Logger.warn("Unhandled websocket in: #{msg}")
-    conn
-  end
-
-  defp dispatch(%{opcode: unquote(Opcode.from_atom(:ping))} = conn) do
+  defp dispatch(%{opcode: :ping}, conn, {handler, state}) do
     Logger.info("Received ping")
     conn
     |> Response.build_pong_frame()
     |> Response.send()
+    {:ok, conn, {handler, state}}
   end
 
-  defp dispatch(%{opcode: unquote(Opcode.from_atom(:pong))} = conn) do
+  defp dispatch(%{opcode: :pong}, conn, {handler, state}) do
     Logger.info("Received pong")
-    conn
+    {:ok, conn, {handler, state}}
   end
 
-  def upgrade(conn) do
-    Agent.start_link(fn -> conn.socket end, name: __MODULE__)
-    struct(Conn, Map.from_struct(conn))
-    |> Map.put(:ws_protocol, get_ws_protocol(conn))
-    |> Sec.sign(conn)
-    |> handshake(conn)
-    |> receive_loop()
+  defp dispatch(%{payload: payload, opcode: opcode}, conn, {handler, state}) do
+    Logger.info("Recieved payload #{inspect payload}")
+    handler.handle_frame(opcode, payload, conn, state)
+  end
+
+  defp return({:ok, conn, state}, handler) do
+    receive_loop(conn, {handler, state})
+  end
+
+  defp return(_, _) do
+    # terminate() # TODO
+    :stop
+  end
+
+  def upgrade(%Flux.Conn{} = http_conn, handler, args) do
+    Agent.start_link(fn -> http_conn.socket end, name: __MODULE__)
+    # TODO Figure out what I was thinking here
+    case handler.init(http_conn, args) do
+      {:ok, state} -> do_upgrade(http_conn, {handler, state})
+      :error -> fail(http_conn)
+    end
+  end
+
+  defp do_upgrade(http_conn, {handler, state}) do
+    struct(Websocket.Conn, Map.from_struct(http_conn))
+    |> Map.put(:ws_protocol, get_ws_protocol(http_conn))
+    |> Sec.sign(http_conn)
+    |> handshake(http_conn)
+    |> receive_loop({handler, state})
   end
 
   defp get_ws_protocol(%{req_headers: req_headers}),
@@ -63,13 +84,20 @@ defmodule Flux.Websocket do
 
     receive do
       other ->
-        IO.inspect(other, label: "flush")
         :ok
     after
       0 -> :ok
     end
 
     conn
+  end
+
+  def fail(http_conn) do
+    http_conn
+    |> Map.put(:status, 403)
+    |> Map.put(:resp_type, :raw)
+    |> HTTPResponse.build()
+    |> HTTPResponse.send_response(http_conn)
   end
 
   defp put_handshake_headers(%{resp_headers: resp_headers} = http_conn, conn) do

@@ -11,8 +11,6 @@ defmodule Flux.Websocket.Sec do
   end
 
   def do_find({key, val}) do
-    IO.inspect(key)
-
     if String.downcase(key) == "sec-websocket-key" do
       val
     else

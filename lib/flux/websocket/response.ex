@@ -1,11 +1,16 @@
 defmodule Flux.Websocket.Response do
-  alias Flux.Websocket.Opcode
+  alias Flux.Websocket.Frame
 
   def send(%{frame: nil} = conn), do: conn
   def send(conn) do
     :gen_tcp.send(conn.socket, conn.frame)
     conn
   end
+  def send(conn, frame) do
+    :gen_tcp.send(conn.socket, frame)
+    conn
+  end
+
 
   def build_text_frame(conn, payload) do
     %{conn | frame: build_frame(:text, payload)}
@@ -19,8 +24,19 @@ defmodule Flux.Websocket.Response do
     %{conn | frame: build_frame(:pong, "")}
   end
 
-  defp build_frame(type, payload) do
-    code = Opcode.from_atom(type)
+  def build_frame(type, payload) when is_list(payload) do
+    #TODO make this work
+    code = Frame.opcode_from_atom(type)
+    len = IO.iodata_length(payload)
+    length_size = integer_bit_size(len)
+    [<<1::1, 0::1, 0::1, 0::1, code::4, 0::1>>
+    |> add_length(len, length_size),
+    payload
+    ]
+    |> IO.iodata_to_binary()
+  end
+  def build_frame(type, payload) do
+    code = Frame.opcode_from_atom(type)
     len = byte_size(payload)
     length_size = integer_bit_size(len)
     <<1::1, 0::1, 0::1, 0::1, code::4, 0::1>>

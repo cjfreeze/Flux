@@ -8,6 +8,7 @@ defmodule Flux.Conn do
             status: 200,
             version: nil,
             uri: nil,
+            query: nil,
             port: nil,
             host: nil,
             peer: nil,

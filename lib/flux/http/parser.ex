@@ -56,10 +56,24 @@ defmodule Flux.HTTP.Parser do
   defp parse_uri(%{data: <<" ", tail::binary>>} = state, acc),
     do: %{state | uri: Enum.reverse(acc), data: tail}
 
+  defp parse_uri(%{data: <<"?", tail::binary>>} = state, acc),
+    do: parse_query(%{state | uri: Enum.reverse(acc), data: tail})
+
   defp parse_uri(%{data: <<head::binary-size(1), tail::binary>>} = state, acc),
     do: parse_uri(%{state | data: tail}, [head | acc])
 
   defp parse_uri(_, acc),
+    do: Logger.error("Undexpectedly reached end of data with acc #{inspect(acc)}")
+
+  defp parse_query(state, acc \\ [])
+
+  defp parse_query(%{data: <<" ", tail::binary>>} = state, acc),
+    do: %{state | query: IO.iodata_to_binary(Enum.reverse(acc)), data: tail}
+
+  defp parse_query(%{data: <<head::binary-size(1), tail::binary>>} = state, acc),
+    do: parse_query(%{state | data: tail}, [head | acc])
+
+  defp parse_query(_, acc),
     do: Logger.error("Undexpectedly reached end of data with acc #{inspect(acc)}")
 
   defp parse_version(%{data: <<"HTTP/1.1", rest::binary>>} = state) do
