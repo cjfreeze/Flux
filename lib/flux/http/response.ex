@@ -15,13 +15,6 @@ defmodule Flux.HTTP.Response do
   {os, _} = :os.type()
   @os "#{os}"
 
-  @spec send_response(iodata, Flux.Conn.t()) :: atom
-  def send_response(response, conn) do
-    with :ok <- :gen_tcp.send(conn.socket, response) do
-      {:ok, conn.resp_body, conn}
-    end
-  end
-
   @spec build(Flux.Conn.t()) :: iodata
   def build(%{
         status: status,

@@ -61,7 +61,26 @@ defmodule Flux.Conn do
   @type language :: binary
   @type qvalue :: float
 
-  def keep_alive_conn(conn) do
+  # TODO better status validation
+  def put_status(%Flux.Conn{} = conn, status)
+      when is_integer(status) and status > 100 and status < 600 do
+    %{conn | status: status}
+  end
+
+  def put_resp_headers(%Flux.Conn{} = conn, headers) do
+    %{conn | resp_headers: headers ++ conn.resp_headers}
+  end
+
+  def put_resp_header(%Flux.Conn{} = conn, header) do
+    %{conn | resp_headers: [header | conn.resp_headers]}
+  end
+
+  def put_resp_body(%Flux.Conn{} = conn, body) when is_list(body) or is_binary(body) do
+    %{conn | resp_body: body}
+  end
+
+  @doc false
+  def keep_alive_conn(%Flux.Conn{} = conn) do
     %__MODULE__{
       parent: conn.parent,
       ref: conn.ref,

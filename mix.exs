@@ -38,7 +38,6 @@ defmodule Flux.Mixfile do
   defp deps do
     [
       {:ranch, "~> 1.3"},
-      {:plug, "~> 1.0"},
       {:httpoison, "~> 1.0", only: :test},
       {:excoveralls, "~> 0.8", only: :test}
     ]
