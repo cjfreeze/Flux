@@ -18,6 +18,7 @@ defmodule Flux.Websocket.Sec do
     end
   end
 
+  defp do_sign(nil), do: throw "Expected the header sec-websocket-key to be present in the conn, but could not find it."
   defp do_sign(key) do
     :crypto.hash(:sha, key <> @guid)
     |> Base.encode64()

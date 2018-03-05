@@ -3,7 +3,7 @@ defmodule FluxTest do
   alias Flux.Test.Client
 
   setup_all _flux do
-    start_supervised({Flux.Handler, [:http, Flux.Test.Endpoint, [port: 4000, otp_app: :flux]]})
+    start_supervised({Flux.Handler, [:http, Flux.Test.Endpoint, [port: 4567, otp_app: :flux]]})
     %{flux: Flux}
   end
 

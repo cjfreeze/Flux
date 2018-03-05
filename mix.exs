@@ -39,7 +39,8 @@ defmodule Flux.Mixfile do
     [
       {:ranch, "~> 1.3"},
       {:httpoison, "~> 1.0", only: :test},
-      {:excoveralls, "~> 0.8", only: :test}
+      {:excoveralls, "~> 0.8", only: :test},
+      {:websockex, "~> 0.4.0", only: :test}
     ]
   end
 end

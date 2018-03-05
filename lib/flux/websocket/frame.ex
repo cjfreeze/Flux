@@ -8,7 +8,8 @@ defmodule Flux.Websocket.Frame do
             mask?: false,
             payload_length: nil,
             mask: nil,
-            payload: nil
+            payload: nil,
+            close_code: nil
 
   opcodes = [
     continue: 0x0,
@@ -29,7 +30,8 @@ defmodule Flux.Websocket.Frame do
           mask?: boolean,
           payload_length: non_neg_integer,
           mask: integer,
-          payload: binary | iodata
+          payload: binary | iodata,
+          close_code: pos_integer | nil
         }
 
   @typedoc """
