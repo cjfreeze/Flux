@@ -8,9 +8,7 @@ defmodule Flux.HTTP do
 
   @spec init(pid, identifier, pid, atom, keyword) :: atom
   def init(parent_pid, ref, socket, transport, opts) do
-    {:ok, {ip, port} = peer} = :inet.peername(socket)
-    IO.inspect(transport)
-
+    {:ok, {ip, port} = peer} = transport.peer_name(socket)
     %Conn{
       parent: parent_pid,
       ref: ref,
@@ -28,15 +26,18 @@ defmodule Flux.HTTP do
   def receive_loop(:stop), do: :ok
 
   def receive_loop(%{transport: transport, socket: socket} = conn) do
-    transport.setopts(socket, active: :once)
-    {success, _, _} = conn.transport.messages()
+    transport.set_opts(socket, active: :once)
+    {success, closed, error} = transport.messages()
 
     receive do
       {^success, socket, msg} ->
         {socket, msg}
         |> handle_in(conn)
 
-      {:tcp_closed, _socket} ->
+      {^closed, _socket} ->
+        :stop
+
+      {^error, _socket} ->
         :stop
 
       other ->
@@ -60,7 +61,6 @@ defmodule Flux.HTTP do
   @adapter Application.get_env(:flux, :plug_adapter, nil)
 
   defp call_endpoint(%Conn{opts: %{endpoint: nil}} = conn), do: conn
-
   if @adapter do
     defp call_endpoint(%Conn{opts: %{endpoint: endpoint}} = conn) do
       @adapter.upgrade(conn, endpoint)
@@ -81,8 +81,8 @@ defmodule Flux.HTTP do
   """
   @spec send_response(Flux.Conn.t()) :: {:ok, iodata, Conn.t()} | :error
   def send_response(conn) do
-    with response = Response.build(conn), :ok <- :gen_tcp.send(conn.socket, response) do
-      {:ok, conn.resp_body, conn}
+    with response = Response.build(conn), :ok <- conn.transport.send(conn.socket, response) do
+      {:ok, nil, conn}
     end
   end
 
@@ -93,7 +93,7 @@ defmodule Flux.HTTP do
   see send_response/1.
   """
   @spec send_file(Flux.Conn.t(), Path.t(), non_neg_integer, non_neg_integer | :all) ::
-          {:ok, iodata, Conn.t()} | :error
+          {:ok, nil, Conn.t()} | :error
   def send_file(conn, file, offset \\ 0, length \\ :all) do
     with {:ok, content} <- Flux.File.read_file(file, offset, length) do
       conn

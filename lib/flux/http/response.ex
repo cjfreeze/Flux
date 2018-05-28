@@ -186,5 +186,5 @@ defmodule Flux.HTTP.Response do
   defp status_message(599), do: "Network Connect Timeout Error"
 
   # Other
-  defp status_message(_), do: throw("Unrecognized Status Code")
+  defp status_message(_), do: raise("Unrecognized Status Code")
 end

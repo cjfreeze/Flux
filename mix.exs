@@ -19,7 +19,11 @@ defmodule Flux.Mixfile do
   # Type "mix help compile.app" for more information
   def application do
     # Specify extra applications you'll use from Erlang/Elixir
-    [extra_applications: [:logger], mod: {Flux.Application, []}]
+    [
+      extra_applications: [:logger],
+      mod: {Flux.Application, []},
+      applications: []
+    ]
   end
 
   # Specifies which paths to compile per environment.
@@ -37,7 +41,7 @@ defmodule Flux.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:ranch, "~> 1.3"},
+      {:nexus, path: "/Users/chris/Projects/Elixir/Nexus"},
       {:httpoison, "~> 1.0", only: :test},
       {:excoveralls, "~> 0.8", only: :test},
       {:websockex, "~> 0.4.0", only: :test}

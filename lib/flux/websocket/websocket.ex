@@ -143,7 +143,7 @@ defmodule Flux.Websocket do
   """
   @spec send_frame(Conn.t(), iodata) :: Conn.t()
   def send_frame(conn, frame) do
-    case :gen_tcp.send(conn.socket, frame) do
+    case conn.transport.send(conn.socket, frame) do
       {:tcp_closed, socket} ->
         send(conn.pid, {:tcp_closed, socket})
 
