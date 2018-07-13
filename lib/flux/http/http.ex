@@ -6,6 +6,8 @@ defmodule Flux.HTTP do
   alias Flux.Conn
   alias Flux.HTTP.{Parser, Response}
 
+  @adapter Application.get_env(:flux, :plug_adapter, nil)
+
   @spec init(pid, identifier, pid, atom, keyword) :: atom
   def init(parent_pid, ref, socket, transport, opts) do
     {:ok, {ip, port} = peer} = transport.peer_name(socket)
@@ -58,8 +60,6 @@ defmodule Flux.HTTP do
     conn
   end
 
-  @adapter Application.get_env(:flux, :plug_adapter, nil)
-
   defp call_endpoint(%Conn{opts: %{endpoint: nil}} = conn), do: conn
   if @adapter do
     defp call_endpoint(%Conn{opts: %{endpoint: endpoint}} = conn) do
@@ -83,6 +83,8 @@ defmodule Flux.HTTP do
   def send_response(conn) do
     with response = Response.build(conn), :ok <- conn.transport.send(conn.socket, response) do
       {:ok, nil, conn}
+    else
+      _ -> raise "error in send response"
     end
   end
 
@@ -95,10 +97,12 @@ defmodule Flux.HTTP do
   @spec send_file(Flux.Conn.t(), Path.t(), non_neg_integer, non_neg_integer | :all) ::
           {:ok, nil, Conn.t()} | :error
   def send_file(conn, file, offset \\ 0, length \\ :all) do
-    with {:ok, content} <- Flux.File.read_file(file, offset, length) do
+    with content when is_binary(content) <- Flux.File.read_file(file, offset, length) do
       conn
       |> Conn.put_resp_body(content)
       |> send_response()
+    else
+      _ -> raise "error in send file"
     end
   end
 end

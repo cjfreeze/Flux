@@ -6,7 +6,7 @@ defmodule Flux do
   require Logger
 
   @doc """
-  start_link/0
+  start_link/3
 
   ## Examples
 

@@ -21,8 +21,7 @@ defmodule Flux.Mixfile do
     # Specify extra applications you'll use from Erlang/Elixir
     [
       extra_applications: [:logger],
-      mod: {Flux.Application, []},
-      applications: []
+      mod: {Flux.Application, []}
     ]
   end
 

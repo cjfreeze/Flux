@@ -11,7 +11,7 @@ defmodule Flux.Websocket do
   def receive_loop(:stop), do: :ok
 
   def receive_loop(%{transport: transport, socket: socket} = conn, {handler, state}) do
-    transport.setopts(socket, active: :once)
+    transport.set_opts(socket, active: :once)
     {success, _, _} = conn.transport.messages()
 
     receive do
@@ -52,7 +52,6 @@ defmodule Flux.Websocket do
 
   defp dispatch(%{opcode: :ping}, conn, {handler, state}) do
     Logger.info("Received ping")
-
     send_frame(conn, Frame.build_frame(:pong, ""))
 
     {:ok, conn, {handler, state}}
@@ -64,7 +63,6 @@ defmodule Flux.Websocket do
   end
 
   defp dispatch(%{payload: payload, opcode: opcode}, conn, {handler, state}) do
-    Logger.info("Recieved payload #{inspect(payload)}")
     handler.handle_frame(opcode, payload, conn, state)
   end
 

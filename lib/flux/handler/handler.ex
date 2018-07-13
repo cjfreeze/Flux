@@ -4,8 +4,7 @@ defmodule Flux.Handler do
       id: Flux,
       start: {Flux, :start_link, opts},
       type: :worker,
-      restart: :permanent,
-      shutdown: 500
+      restart: :permanent
     }
   end
 

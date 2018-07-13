@@ -88,22 +88,15 @@ defmodule Flux.HTTP.Parser do
     Logger.error("Unmatched version #{inspect(state.data)}")
   end
 
-  defm advance_newline(%{data: <<:__MATCH__, rest::binary>>} = state), [
-    "\r\n",
-    "\n\r",
-    "\n",
-    "\r"
-  ] do
+  defmatch advance_newline(%{data: <<:__MATCH__, rest::binary>>} = state) do
     %{state | data: rest}
   end
 
   defp advance_newline(state), do: state
 
-  defm(
-    parse_headers(%{data: <<:__MATCH__, rest::binary>>} = state),
-    ["\n\r", "\r\n", "\n", "\r"],
-    do: %{state | data: rest}
-  )
+  defmatch parse_headers(%{data: <<:__MATCH__, rest::binary>>} = state) do
+    %{state | data: rest}
+  end
 
   defp parse_headers(state) do
     state
@@ -123,12 +116,11 @@ defmodule Flux.HTTP.Parser do
 
   defp parse_header_value(state, key, acc \\ "")
 
-  defm parse_header_value(
+  defmatch parse_header_value(
          %{data: <<:__MATCH__, rest::binary>>, req_headers: headers} = state,
          key,
          val
-       ),
-       ["\n\r", "\r\n", "\n", "\r"] do
+       ) do
     downcased_key = String.downcase(key)
     downcased_val = String.downcase(val)
     new_state = Flux.HTTP.Headers.handle_header(state, downcased_key, downcased_val)
@@ -141,7 +133,7 @@ defmodule Flux.HTTP.Parser do
   defp parse_header_value(%{data: <<head::binary-size(1), tail::binary>>} = state, key, acc),
     do: parse_header_value(%{state | data: tail}, key, acc <> head)
 
-  defm clear_newlines(%{data: <<:__MATCH__, rest::binary>>} = state), ["\n\r", "\r\n", "\n", "\r"] do
+  defmatch clear_newlines(%{data: <<:__MATCH__, rest::binary>>} = state) do
     clear_newlines(%{state | data: rest})
   end
 
