@@ -40,7 +40,7 @@ defmodule Flux.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:nexus, path: "/Users/chris/Projects/Elixir/Nexus"},
+      {:nexus, github: "cjfreeze/Nexus"},
       {:httpoison, "~> 1.0", only: :test},
       {:excoveralls, "~> 0.8", only: :test},
       {:websockex, "~> 0.4.0", only: :test}
