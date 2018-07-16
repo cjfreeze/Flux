@@ -33,7 +33,6 @@ defmodule Flux.HTTP do
 
     receive do
       {^success, socket, msg} ->
-        IO.inspect msg
         {socket, msg}
         |> handle_in(conn)
 
@@ -97,13 +96,11 @@ defmodule Flux.HTTP do
   """
   @spec send_file(Flux.Conn.t(), Path.t(), non_neg_integer, non_neg_integer | :all) ::
           {:ok, nil, Conn.t()} | :error
-  def send_file(conn, file, offset \\ 0, length \\ :all) do
-    with content when is_binary(content) <- Flux.File.read_file(file, offset, length) do
-      conn
-      |> Conn.put_resp_body(content)
-      |> send_response()
+  def send_file(%Flux.Conn{transport: transport, socket: socket} = conn, file, offset \\ 0, length \\ :all) do
+    with :ok <- transport.send_file(socket, file, offset, length, []) do
+      {:ok, nil, conn}
     else
-      _ -> raise "error in send file"
+      {:error, reason} -> raise "Error in Flux.HTTP.send_file with reason #{reason}."
     end
   end
 end
