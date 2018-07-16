@@ -1,123 +1,126 @@
 defmodule Flux.HTTP.Parser do
   require Logger
   import Flux.HTTP.Macros
+  alias Flux.Conn
 
   @spec parse(Flux.HTTP.state(), String.t()) :: Flux.state()
   def parse(state, data) do
-    Map.put(state, :data, data)
-    |> Map.put(:request, data)
-    |> parse_method()
-    |> parse_uri()
-    |> parse_version()
-    |> advance_newline()
-    |> parse_headers()
-    |> parse_body()
-    |> Map.delete(:data)
+
+    parse_method(%{state | request: data}, data)
+    # Map.put(state, :data, data)
+    # |> Map.put(:request, data)
+    # |> parse_method()
+    # |> parse_uri()
+    # |> parse_version()
+    # |> advance_newline()
+    # |> parse_headers()
+    # |> parse_body()
+    # |> Map.delete(:data)
   end
 
-  defp parse_method(%{data: <<"GET ", rest::binary>>} = state) do
-    %{state | method: :GET, data: rest}
+  defp parse_method(%Conn{} = state, <<"GET ", rest::binary>>) do
+    parse_uri(%{state | method: :GET}, rest)
   end
 
-  defp parse_method(%{data: <<"HEAD ", rest::binary>>} = state) do
-    %{state | method: :HEAD, data: rest}
+  defp parse_method(%Conn{} = state, <<"HEAD ", rest::binary>>) do
+    parse_uri(%{state | method: :HEAD}, rest)
   end
 
-  defp parse_method(%{data: <<"POST ", rest::binary>>} = state) do
-    %{state | method: :POST, data: rest}
+  defp parse_method(%Conn{} = state, <<"POST ", rest::binary>>) do
+    parse_uri(%{state | method: :POST}, rest)
   end
 
-  defp parse_method(%{data: <<"OPTIONS ", rest::binary>>} = state) do
-    %{state | method: :OPTIONS, data: rest}
+  defp parse_method(%Conn{} = state, <<"OPTIONS ", rest::binary>>) do
+    parse_uri(%{state | method: :OPTIONS}, rest)
   end
 
-  defp parse_method(%{data: <<"PUT ", rest::binary>>} = state) do
-    %{state | method: :PUT, data: rest}
+  defp parse_method(%Conn{} = state, <<"PUT ", rest::binary>>) do
+    parse_uri(%{state | method: :PUT}, rest)
   end
 
-  defp parse_method(%{data: <<"DELETE ", rest::binary>>} = state) do
-    %{state | method: :DELETE, data: rest}
+  defp parse_method(%Conn{} = state, <<"DELETE ", rest::binary>>) do
+    parse_uri(%{state | method: :DELETE}, rest)
   end
 
-  defp parse_method(%{data: <<"TRACE ", rest::binary>>} = state) do
-    %{state | method: :TRACE, data: rest}
+  defp parse_method(%Conn{} = state, <<"TRACE ", rest::binary>>) do
+    parse_uri(%{state | method: :TRACE}, rest)
   end
 
-  defp parse_method(%{data: <<"CONNECT ", rest::binary>>} = state) do
-    %{state | method: :CONNECT, data: rest}
+  defp parse_method(%Conn{} = state, <<"CONNECT ", rest::binary>>) do
+    parse_uri(%{state | method: :CONNECT}, rest)
   end
 
-  defp parse_method(state) do
-    Logger.error("Unmatched method #{inspect(state.data)}")
+  defp parse_method(_state, data) do
+    Logger.error("Unmatched method #{inspect(data)}")
   end
 
-  defp parse_uri(state, acc \\ [])
+  defp parse_uri(state, data, acc \\ [])
 
-  defp parse_uri(%{data: <<" ", tail::binary>>} = state, acc),
-    do: %{state | uri: Enum.reverse(acc), data: tail}
+  defp parse_uri(%Conn{} = state, <<" ", tail::binary>>, acc),
+    do: parse_version(%{state | uri: Enum.reverse(acc)}, tail)
 
-  defp parse_uri(%{data: <<"?", tail::binary>>} = state, acc),
-    do: parse_query(%{state | uri: Enum.reverse(acc), data: tail})
+  defp parse_uri(%Conn{} = state, <<"?", tail::binary>>, acc),
+    do: parse_query(%{state | uri: Enum.reverse(acc)}, tail)
 
-  defp parse_uri(%{data: <<head::binary-size(1), tail::binary>>} = state, acc),
-    do: parse_uri(%{state | data: tail}, [head | acc])
+  defp parse_uri(%Conn{} = state, <<head::binary-size(1), tail::binary>>, acc),
+    do: parse_uri(state, tail, [head | acc])
 
-  defp parse_uri(_, acc),
+  defp parse_uri(_state, _data, acc),
     do: Logger.error("Undexpectedly reached end of data with acc #{inspect(acc)}")
 
-  defp parse_query(state, acc \\ [])
+  defp parse_query(state, data, acc \\ [])
 
-  defp parse_query(%{data: <<" ", tail::binary>>} = state, acc),
-    do: %{state | query: IO.iodata_to_binary(Enum.reverse(acc)), data: tail}
+  defp parse_query(%Conn{} = state, <<" ", tail::binary>>, acc),
+    do: parse_version(%{state | query: IO.iodata_to_binary(Enum.reverse(acc))}, tail)
 
-  defp parse_query(%{data: <<head::binary-size(1), tail::binary>>} = state, acc),
-    do: parse_query(%{state | data: tail}, [head | acc])
+  defp parse_query(%Conn{} = state, <<head::binary-size(1), tail::binary>>, acc),
+    do: parse_query(state, tail, [head | acc])
 
-  defp parse_query(_, acc),
+  defp parse_query(_state, _data, acc),
     do: Logger.error("Undexpectedly reached end of data with acc #{inspect(acc)}")
 
-  defp parse_version(%{data: <<"HTTP/1.1", rest::binary>>} = state) do
-    %{state | version: :"HTTP/1.1", data: rest}
+  defp parse_version(%Conn{} = state, <<"HTTP/1.1", rest::binary>>) do
+    advance_newline(%{state | version: :"HTTP/1.1"}, rest, &parse_headers/2)
   end
 
-  defp parse_version(%{data: <<"HTTP/1.0", rest::binary>>} = state) do
-    %{state | version: :"HTTP/1.0", data: rest}
+  defp parse_version(%Conn{} = state, <<"HTTP/1.0", rest::binary>>) do
+    advance_newline(%{state | version: :"HTTP/1.0"}, rest, &parse_headers/2)
   end
 
-  defp parse_version(state) do
-    Logger.error("Unmatched version #{inspect(state.data)}")
+  defp parse_version(_state, data) do
+    Logger.error("Unmatched version #{inspect(data)}")
   end
 
-  defmatch advance_newline(%{data: <<:__MATCH__, rest::binary>>} = state) do
-    %{state | data: rest}
+  defmatch advance_newline(%Conn{} = state, <<:__MATCH__, rest::binary>>, next_step) do
+    next_step.(state, rest)
   end
 
-  defp advance_newline(state), do: state
+  defp advance_newline(state, data, next_step), do: next_step.(state, data)
 
-  defmatch parse_headers(%{data: <<:__MATCH__, rest::binary>>} = state) do
-    %{state | data: rest}
+  defmatch parse_headers(%Conn{} = state, <<:__MATCH__, rest::binary>>) do
+    parse_body(state, rest)
   end
 
-  defp parse_headers(state) do
-    state
-    |> clear_newlines()
-    |> parse_header_key()
+  defp parse_headers(state, data) do
+    clear_newlines(state, data, &parse_header_key/2)
+    # |> parse_header_key()
   end
 
-  defp parse_header_key(state, acc \\ "")
+  defp parse_header_key(state, data, acc \\ "")
 
-  defp parse_header_key(%{data: <<": ", rest::binary>>} = state, acc) do
-    parse_header_value(%{state | data: rest}, acc)
+  defp parse_header_key(%Conn{} = state, <<": ", rest::binary>>, acc) do
+    parse_header_value(state, rest, acc)
   end
 
-  defp parse_header_key(%{data: <<head::binary-size(1), tail::binary>>} = state, acc) do
-    parse_header_key(%{state | data: tail}, acc <> head)
+  defp parse_header_key(%Conn{} = state, <<head::binary-size(1), tail::binary>>, acc) do
+    parse_header_key(state, tail, acc <> head)
   end
 
-  defp parse_header_value(state, key, acc \\ "")
+  defp parse_header_value(state, data, key, acc \\ "")
 
   defmatch parse_header_value(
-         %{data: <<:__MATCH__, rest::binary>>, req_headers: headers} = state,
+         %{req_headers: headers} = state,
+         <<:__MATCH__, rest::binary>>,
          key,
          val
        ) do
@@ -126,20 +129,19 @@ defmodule Flux.HTTP.Parser do
     new_state = Flux.HTTP.Headers.handle_header(state, downcased_key, downcased_val)
     # Move this into a callback variable passed in from Flux.HTTP that defaults to Headers
 
-    %{new_state | data: rest, req_headers: [{key, val} | headers]}
-    |> parse_headers()
+    parse_headers(%{new_state | req_headers: [{key, val} | headers]}, rest)
   end
 
-  defp parse_header_value(%{data: <<head::binary-size(1), tail::binary>>} = state, key, acc),
-    do: parse_header_value(%{state | data: tail}, key, acc <> head)
+  defp parse_header_value(%Conn{} = state, <<head::binary-size(1), tail::binary>>, key, acc),
+    do: parse_header_value(state, tail, key, acc <> head)
 
-  defmatch clear_newlines(%{data: <<:__MATCH__, rest::binary>>} = state) do
-    clear_newlines(%{state | data: rest})
+  defmatch clear_newlines(%Conn{} = state, <<:__MATCH__, rest::binary>>, next_step) do
+    clear_newlines(state, rest, next_step)
   end
 
-  defp clear_newlines(state), do: state
+  defp clear_newlines(state, data, next_step), do: next_step.(state, data)
 
-  def parse_body(%{data: remaining} = state) do
-    Map.put(state, :req_body, remaining)
+  def parse_body(%Conn{} = state, body) do
+    Map.put(state, :req_body, body)
   end
 end

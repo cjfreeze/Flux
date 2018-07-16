@@ -33,6 +33,7 @@ defmodule Flux.HTTP do
 
     receive do
       {^success, socket, msg} ->
+        IO.inspect msg
         {socket, msg}
         |> handle_in(conn)
 

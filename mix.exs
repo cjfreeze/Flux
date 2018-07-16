@@ -45,7 +45,8 @@ defmodule Flux.Mixfile do
       # {:nexus, github: "cjfreeze/Nexus"},
       {:httpoison, "~> 1.0", only: :test},
       {:excoveralls, "~> 0.8", only: :test},
-      {:websockex, "~> 0.4.0", only: :test}
+      {:websockex, "~> 0.4.0", only: :test},
+      {:benchee, "~> 0.13.1", only: :dev}
     ]
   end
 end
