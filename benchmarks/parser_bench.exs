@@ -13,6 +13,5 @@ Cache-Control: max-age=0\r
 conn = %Flux.Conn{}
 
 Benchee.run(%{
-  "parser_old"    => fn -> Flux.HTTP.ParserOld.parse(conn, request) end,
   "parser"    => fn -> Flux.HTTP.Parser.parse(conn, request) end,
 }, time: 10, memory_time: 2)
