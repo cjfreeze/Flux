@@ -6,13 +6,11 @@ defmodule Flux.Application do
   use Application
 
   def start(_type, _args) do
-    import Supervisor.Spec, warn: false
-
     children = [
-      # worker(Flux, []),
+      # {Flux.Handler, [scheme: :http, endpoint: nil, otp_app: :flux]}
     ]
 
-    opts = [strategy: :one_for_one, name: Flux.Supervisor]
+    opts = [strategy: :one_for_one, name: Flux.Application]
     Supervisor.start_link(children, opts)
   end
 end
