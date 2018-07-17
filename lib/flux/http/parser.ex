@@ -5,7 +5,6 @@ defmodule Flux.HTTP.Parser do
 
   @spec parse(Flux.HTTP.state(), String.t()) :: Flux.state()
   def parse(state, data) do
-
     parse_method(%{state | request: data}, data)
     # Map.put(state, :data, data)
     # |> Map.put(:request, data)
@@ -129,7 +128,7 @@ defmodule Flux.HTTP.Parser do
     new_state = Flux.HTTP.Headers.handle_header(state, downcased_key, downcased_val)
     # Move this into a callback variable passed in from Flux.HTTP that defaults to Headers
 
-    parse_headers(%{new_state | req_headers: [{key, val} | headers]}, rest)
+    parse_headers(%{new_state | req_headers: [{downcased_key, val} | headers]}, rest)
   end
 
   defp parse_header_value(%Conn{} = state, <<head::binary-size(1), tail::binary>>, key, acc),

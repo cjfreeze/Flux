@@ -42,7 +42,7 @@ defmodule Flux.Mixfile do
   defp deps do
     [
       # {:nexus, path: "../Nexus"},
-      {:nexus, github: "cjfreeze/Nexus"},
+      {:nexus, path: "../Nexus"},
       {:httpoison, "~> 1.0", only: :test},
       {:excoveralls, "~> 0.8", only: :test},
       {:websockex, "~> 0.4.0", only: :test},

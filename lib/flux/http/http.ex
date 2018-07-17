@@ -10,18 +10,24 @@ defmodule Flux.HTTP do
 
   @spec init(pid, identifier, pid, atom, keyword) :: atom
   def init(parent_pid, ref, socket, transport, opts) do
-    {:ok, {ip, port} = peer} = transport.peer_name(socket)
-    %Conn{
-      parent: parent_pid,
-      ref: ref,
-      socket: socket,
-      transport: transport,
-      opts: opts,
-      port: port,
-      remote_ip: ip,
-      peer: peer
-    }
-    |> receive_loop()
+    with {:ok, {ip, port} = peer} <- transport.peer_name(socket) do
+      %Conn{
+        parent: parent_pid,
+        ref: ref,
+        socket: socket,
+        transport: transport,
+        opts: opts,
+        port: port,
+        remote_ip: ip,
+        peer: peer
+      }
+      |> receive_loop()
+    else
+      {:error, reason} ->
+        # Likely not the correct transport (http trying to connect to https)
+        # transport.send(socket, "500 Internal Server Error HTTP/1.1\r\n")
+        {:error, reason}
+    end
   end
 
   @doc false
@@ -97,7 +103,10 @@ defmodule Flux.HTTP do
   @spec send_file(Flux.Conn.t(), Path.t(), non_neg_integer, non_neg_integer | :all) ::
           {:ok, nil, Conn.t()} | :error
   def send_file(%Flux.Conn{transport: transport, socket: socket} = conn, file, offset \\ 0, length \\ :all) do
-    with :ok <- transport.send_file(socket, file, offset, length, []) do
+    with {:ok, %{size: size}} <- File.stat(file),
+          response = Response.file_response(conn.status, conn.version, size, conn.resp_headers, conn.method),
+          :ok <- conn.transport.send(conn.socket, response),
+          :ok <- transport.send_file(socket, file, offset, length, []) do
       {:ok, nil, conn}
     else
       {:error, reason} -> raise "Error in Flux.HTTP.send_file with reason #{reason}."

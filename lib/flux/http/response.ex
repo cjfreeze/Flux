@@ -33,7 +33,6 @@ defmodule Flux.HTTP.Response do
     else
       {:resp_type, :raw} ->
         raw_response(status, version, headers)
-
       {:error, status} ->
         error_response(status, version, headers, method)
     end
@@ -48,6 +47,17 @@ defmodule Flux.HTTP.Response do
     ]
     |> add_headers(headers)
     |> add_body(body, method)
+  end
+
+  def file_response(status, version, length, headers, method) do
+    [
+      status_line(version, status),
+      date(),
+      server(),
+      content_length_header(length)
+    ]
+    |> add_headers(headers)
+    |> add_body(nil, method)
   end
 
   def raw_response(status, version, headers) do
@@ -82,6 +92,10 @@ defmodule Flux.HTTP.Response do
 
   defp add_encoding_header(headers, coding) do
     [{"content-encoding", coding} | headers]
+  end
+
+  defp content_length_header(length) when is_integer(length) do
+    ["content-length: ", "#{length}", "\r\n"]
   end
 
   defp content_length_header(body) do
