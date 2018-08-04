@@ -3,7 +3,11 @@ defmodule FluxTest do
   alias Flux.Test.Client
 
   setup_all _flux do
-    start_supervised({Flux.Handler, [:http, Flux.Test.Endpoint, [port: 4567, otp_app: :flux]]})
+    start_supervised(
+      {Flux.Handler, [scheme: :http, port: 4567, otp_app: :flux, endpoint: Flux.Test.Endpoint]}
+    )
+
+    HTTPoison.start()
     %{flux: Flux}
   end
 
@@ -38,18 +42,24 @@ defmodule FluxTest do
     end
 
     test "sends a file correctly", %{flux: _flux} do
-      file = "#{System.tmp_dir()}file.txt"
       content = "Hello World!"
-      File.write(file, content)
-      {:ok, %{body: body}} = Client.request(:get, "localhost:4000/file", "", [], [])
+      assert {:ok, %{body: body}} = Client.request(:get, "localhost:4000/file", "", [], [])
       assert body == content
-      {:ok, %{body: offset_body}} = Client.request(:get, "localhost:4000/file_offset", "", [], [])
+
+      assert {:ok, %{body: offset_body}} =
+               Client.request(:get, "localhost:4000/file_offset", "", [], [])
+
+      assert offset_body == String.slice(content, 6..10)
+
+      assert {:ok, %{body: offset_body}} =
+               Client.request(:get, "localhost:4000/file_offset", "", [], [])
+
       assert offset_body == String.slice(content, 6..10)
     end
 
     test "handles keep-alive correctly", %{flux: _flux} do
-      {:ok, %{body: _body, headers: headers}} =
-        Client.request(:get, "localhost:4000", "", [{"connection", "keep-alive"}], [])
+      assert {:ok, %{body: _body, headers: headers}} =
+               Client.request(:get, "localhost:4000", "", [{"connection", "keep-alive"}], [])
 
       assert {"connection", "keep-alive"} = get_header(headers, "connection")
 

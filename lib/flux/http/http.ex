@@ -67,9 +67,14 @@ defmodule Flux.HTTP do
   end
 
   defp call_endpoint(%Conn{opts: %{endpoint: nil}} = conn), do: conn
+
   if @adapter do
     defp call_endpoint(%Conn{opts: %{endpoint: endpoint}} = conn) do
       @adapter.upgrade(conn, endpoint)
+    end
+  else
+    defp call_endpoint(%Conn{opts: %{endpoint: endpoint}} = conn) do
+      endpoint.call(conn)
     end
   end
 
@@ -102,14 +107,29 @@ defmodule Flux.HTTP do
   """
   @spec send_file(Flux.Conn.t(), Path.t(), non_neg_integer, non_neg_integer | :all) ::
           {:ok, nil, Conn.t()} | :error
-  def send_file(%Flux.Conn{transport: transport, socket: socket} = conn, file, offset \\ 0, length \\ :all) do
+  def send_file(
+        %Flux.Conn{transport: transport, socket: socket} = conn,
+        file,
+        offset \\ 0,
+        length \\ :all
+      ) do
     with {:ok, %{size: size}} <- File.stat(file),
-          response = Response.file_response(conn.status, conn.version, size, conn.resp_headers, conn.method),
-          :ok <- conn.transport.send(conn.socket, response),
-          :ok <- transport.send_file(socket, file, offset, length, []) do
+         response =
+           Response.file_response(
+             conn.status,
+             conn.version,
+             file_content_length(size, offset, length),
+             conn.resp_headers,
+             conn.method
+           ),
+         :ok <- conn.transport.send(conn.socket, response),
+         :ok <- transport.send_file(socket, file, offset, length, []) do
       {:ok, nil, conn}
     else
       {:error, reason} -> raise "Error in Flux.HTTP.send_file with reason #{reason}."
     end
   end
+
+  defp file_content_length(size, offset, :all), do: size - offset
+  defp file_content_length(_size, _offset, length), do: length
 end
