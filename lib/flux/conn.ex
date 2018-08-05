@@ -63,7 +63,7 @@ defmodule Flux.Conn do
 
   # TODO better status validation
   def put_status(%Flux.Conn{} = conn, status)
-      when is_integer(status) and status > 100 and status < 600 do
+      when is_integer(status) and status >= 100 and status < 600 do
     %{conn | status: status}
   end
 

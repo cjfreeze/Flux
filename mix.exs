@@ -46,7 +46,8 @@ defmodule Flux.Mixfile do
       {:httpoison, "~> 1.0", only: :test},
       {:excoveralls, "~> 0.8", only: :test},
       {:websockex, "~> 0.4.0", only: :test},
-      {:benchee, "~> 0.13.1", only: :dev}
+      {:benchee, "~> 0.13.1", only: :dev},
+      {:stream_data, "~> 0.1", only: :test}
     ]
   end
 end
