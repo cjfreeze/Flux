@@ -10,7 +10,7 @@ defmodule Flux.Handler do
 
   def child_spec(scheme, endpoint, opts) do
     import Supervisor.Spec, warn: false
-    worker(Flux.Supervisor, [[scheme: scheme, endpoint: endpoint] ++ opts])
+    supervisor(Flux.Supervisor, [[scheme: scheme, endpoint: endpoint] ++ opts])
   end
 
   def start_handling_process(socket, transport, state) do

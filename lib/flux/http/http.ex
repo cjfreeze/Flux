@@ -6,8 +6,6 @@ defmodule Flux.HTTP do
   alias Flux.Conn
   alias Flux.HTTP.{Parser, Response}
 
-  @adapter Application.get_env(:flux, :plug_adapter, nil)
-
   @spec init(pid, identifier, pid, atom, keyword) :: atom
   def init(parent_pid, ref, socket, transport, opts) do
     with {:ok, {ip, port} = peer} <- transport.peer_name(socket) do
@@ -57,7 +55,7 @@ defmodule Flux.HTTP do
   defp handle_in({_socket, data}, conn) do
     conn
     |> Parser.parse(data)
-    |> call_endpoint()
+    |> call_handler()
     |> return()
   end
 
@@ -66,19 +64,13 @@ defmodule Flux.HTTP do
     conn
   end
 
-  defp call_endpoint(%Conn{opts: %{endpoint: nil}} = conn), do: conn
+  defp call_handler(%Conn{opts: %{handler: nil}} = conn), do: conn
 
-  if @adapter do
-    defp call_endpoint(%Conn{opts: %{endpoint: endpoint}} = conn) do
-      @adapter.upgrade(conn, endpoint)
-    end
-  else
-    defp call_endpoint(%Conn{opts: %{endpoint: endpoint}} = conn) do
-      endpoint.call(conn)
-    end
+  defp call_handler(%Conn{opts: %{handler: handler, endpoint: endpoint}} = conn) do
+    handler.init(conn, endpoint)
   end
 
-  defp call_endpoint(conn), do: conn
+  defp call_handler(conn), do: conn
 
   defp return({:ok, _, %{keep_alive: true} = conn}), do: Conn.keep_alive_conn(conn)
 

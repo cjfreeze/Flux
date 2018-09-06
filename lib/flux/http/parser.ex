@@ -6,15 +6,6 @@ defmodule Flux.HTTP.Parser do
   @spec parse(Flux.HTTP.state(), String.t()) :: Flux.state()
   def parse(state, data) do
     parse_method(%{state | request: data}, data)
-    # Map.put(state, :data, data)
-    # |> Map.put(:request, data)
-    # |> parse_method()
-    # |> parse_uri()
-    # |> parse_version()
-    # |> advance_newline()
-    # |> parse_headers()
-    # |> parse_body()
-    # |> Map.delete(:data)
   end
 
   defp parse_method(%Conn{} = state, <<"GET ", rest::binary>>) do
@@ -50,6 +41,7 @@ defmodule Flux.HTTP.Parser do
   end
 
   defp parse_method(_state, data) do
+    # TODO Invesitgate error mesasge on unsupported method
     Logger.error("Unmatched method #{inspect(data)}")
   end
 
@@ -64,7 +56,9 @@ defmodule Flux.HTTP.Parser do
   defp parse_uri(%Conn{} = state, <<head::binary-size(1), tail::binary>>, acc),
     do: parse_uri(state, tail, [head | acc])
 
-  defp parse_uri(_state, _data, acc),
+  # POTENTIAL TODO for optimizations with older version of binary recursive pattern matching, ensure all binary match functions
+  # have the match on every clause and in the first argument
+  defp parse_uri(_state, <<>>, acc),
     do: Logger.error("Undexpectedly reached end of data with acc #{inspect(acc)}")
 
   defp parse_query(state, data, acc \\ [])
@@ -89,6 +83,8 @@ defmodule Flux.HTTP.Parser do
   defp parse_version(_state, data) do
     Logger.error("Unmatched version #{inspect(data)}")
   end
+
+  # probably stop using defmatch, do not use anon functions
 
   defmatch advance_newline(%Conn{} = state, <<:__MATCH__, rest::binary>>, next_step) do
     next_step.(state, rest)
@@ -118,13 +114,15 @@ defmodule Flux.HTTP.Parser do
   defp parse_header_value(state, data, key, acc \\ "")
 
   defmatch parse_header_value(
-         %{req_headers: headers} = state,
-         <<:__MATCH__, rest::binary>>,
-         key,
-         val
-       ) do
+             %{req_headers: headers} = state,
+             <<:__MATCH__, rest::binary>>,
+             key,
+             val
+           ) do
     downcased_key = String.downcase(key)
     downcased_val = String.downcase(val)
+    # TODO Downcase the value based on the key
+    # Potenitally do not downcase, but instead metaprogram all possible downcase possibilites
     new_state = Flux.HTTP.Headers.handle_header(state, downcased_key, downcased_val)
     # Move this into a callback variable passed in from Flux.HTTP that defaults to Headers
 
