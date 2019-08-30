@@ -23,15 +23,15 @@ defmodule Flux.Websocket do
         {:terminate, conn, state}
 
       info ->
-        Logger.warn("Unmatched message #{inspect(info)}")
+        # Logger.warn("Unmatched message #{inspect(info)}")
         handle_info(info, conn, {handler, state})
     end
     |> return(handler)
   end
 
-  defp handle_in({_socket, data}, conn, {handler, state}) do
-    data
-    |> Parser.parse()
+  defp handle_in({socket, data}, %{transport: transport} = conn, {handler, state}) do
+    {transport, socket}
+    |> Parser.parse(data)
     |> dispatch(conn, {handler, state})
   end
 
@@ -91,8 +91,11 @@ defmodule Flux.Websocket do
   @spec upgrade(Flux.Conn.t(), module, any) :: :ok | :error
   def upgrade(%Flux.Conn{upgrade: :websocket} = http_conn, handler, args) do
     case handler.init(http_conn, args) do
-      {:ok, state} -> do_upgrade(http_conn, {handler, state})
-      :error -> fail(http_conn)
+      {:ok, state} ->
+        do_upgrade(http_conn, {handler, state})
+
+      :error ->
+        fail(http_conn)
     end
   end
 

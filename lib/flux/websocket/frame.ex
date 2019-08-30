@@ -9,7 +9,8 @@ defmodule Flux.Websocket.Frame do
             payload_length: nil,
             mask: nil,
             payload: nil,
-            close_code: nil
+            close_code: nil,
+            ref: nil
 
   opcodes = [
     continue: 0x0,

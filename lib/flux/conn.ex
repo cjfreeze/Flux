@@ -63,7 +63,7 @@ defmodule Flux.Conn do
 
   # TODO better status validation
   def put_status(%Flux.Conn{} = conn, status)
-      when is_integer(status) and status > 100 and status < 600 do
+      when is_integer(status) and status >= 100 and status < 600 do
     %{conn | status: status}
   end
 
@@ -93,4 +93,29 @@ defmodule Flux.Conn do
       keep_alive: conn.keep_alive
     }
   end
+
+  @default_read_opts %{
+    length: 8_000_000,
+    read_length: 1_000_000,
+    read_timeout: 15_000
+  }
+
+  def read_body(%Flux.Conn{req_body: body} = conn, opts) do
+    body
+    |> do_read_body(Enum.into(opts, @default_read_opts))
+    |> return_read_body(conn)
+  end
+
+  defp do_read_body("", _), do: {"", ""}
+
+  defp do_read_body(body, %{read_length: read_length, length: length}) do
+    read_amount = if read_length < length, do: read_length, else: length
+    String.split_at(body, read_amount)
+  end
+
+  defp do_read_body(_, _), do: :error
+
+  defp return_read_body({body, ""}, conn), do: {:ok, body, conn}
+  defp return_read_body({body, rest}, conn), do: {:more, body, %{conn | req_body: rest}}
+  defp return_read_body(:error, conn), do: {:error, conn}
 end
