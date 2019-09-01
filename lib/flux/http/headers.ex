@@ -1,4 +1,27 @@
+defmodule Flux.HTTP.Headers.Macros do
+  defmacro def_fuzzy_handle_header(conn, key, value, do: do_block) do
+    matches = [String.upcase(key), String.downcase(key), String.capitalize(key)]
+
+    for key_match <- matches do
+      quote do
+        def handle_header(unquote(conn), unquote(key_match), unquote(value)),
+          do: unquote(do_block)
+      end
+    end
+  end
+end
+
 defmodule Flux.HTTP.Headers do
+  import Flux.HTTP.Headers.Macros
+
+  def_fuzzy_handle_header(conn, "transfer-coding", coding) do
+    %{conn | transfer_coding: coding}
+  end
+
+  def_fuzzy_handle_header(conn, "content-length", length) do
+    %{conn | content_length: length}
+  end
+
   def handle_header(conn, "upgrade", "websocket"), do: %{conn | upgrade: :websocket}
 
   def handle_header(%{keep_alive: true} = conn, "connection", "keep-alive"), do: conn

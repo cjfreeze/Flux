@@ -2,7 +2,7 @@ defmodule Flux.HTTP.Response do
   @moduledoc """
   Documentation for Flux.HTTP.Response.
   """
-
+  # TODO this entire module is terrible and needs to be rewritten
   require Logger
 
   alias Flux.HTTP.Encoder
@@ -15,67 +15,62 @@ defmodule Flux.HTTP.Response do
   {os, _} = :os.type()
   @os "#{os}"
 
-  @spec build(Flux.Conn.t()) :: iodata
-  def build(%{
-        status: status,
-        version: version,
-        method: method,
-        resp_headers: headers,
-        resp_body: body,
-        accept_encoding: accepted_codings,
-        resp_type: resp_type
-      }) do
-    with {:ok, coding} <- Encoder.which_coding(accepted_codings),
-         {:ok, encoded_body} <- Encoder.encode(coding, body),
-         {:resp_type, :normal} <- {:resp_type, resp_type} do
-      headers = add_encoding_header(headers, coding)
-      response(status, version, encoded_body, headers, method)
+  def response_iodata(
+        conn,
+        status,
+        headers,
+        body
+      ) do
+    with {:resp_type, :normal} <- {:resp_type, conn.resp_type},
+         {:ok, coding} <- Encoder.which_coding(conn.accepted_codings),
+         {:ok, encoded_body} <- Encoder.encode(coding, body) do
+      headers = [{"content-encoding", coding} | headers]
+
+      [
+        status_line(conn.version, status),
+        date(),
+        server(),
+        content_length_header(encoded_body)
+      ]
+      |> add_headers(headers)
+      |> add_body(encoded_body, conn.method)
     else
       {:resp_type, :raw} ->
-        raw_response(status, version, headers)
-      {:error, status} ->
-        error_response(status, version, headers, method)
+        raw_response_iodata(conn, status, headers)
+
+      {:resp_type, :error} ->
+        error_response_iodata(conn, status, headers)
+
+      {:error, _} ->
+        error_response_iodata(conn, status, headers)
     end
   end
 
-  def response(status, version, body, headers, method) do
+  def file_response_iodata(conn, status, headers, content_length) do
     [
-      status_line(version, status),
+      status_line(conn.version, status),
       date(),
       server(),
-      content_length_header(body)
+      content_length_header(content_length)
     ]
     |> add_headers(headers)
-    |> add_body(body, method)
   end
 
-  def file_response(status, version, length, headers, method) do
+  def raw_response_iodata(conn, status, headers) do
     [
-      status_line(version, status),
-      date(),
-      server(),
-      content_length_header(length)
+      status_line(conn.version, status)
     ]
     |> add_headers(headers)
-    |> add_body(nil, method)
   end
 
-  def raw_response(status, version, headers) do
+  def error_response_iodata(conn, status, headers) do
     [
-      status_line(version, status)
-    ]
-    |> add_headers(headers)
-    |> add_body(nil, nil)
-  end
-
-  def error_response(status, version, headers, method) do
-    [
-      status_line(version, status),
+      status_line(conn.version, status),
       date(),
       server()
     ]
     |> add_headers(headers)
-    |> add_body(status_message(status), method)
+    |> add_body(status_message(status), conn.method)
   end
 
   defp status_line(version, status) do
@@ -88,10 +83,6 @@ defmodule Flux.HTTP.Response do
 
   defp server do
     ["Server: ", "Flux/", @version, " (", @os, ")", "\r\n"]
-  end
-
-  defp add_encoding_header(headers, coding) do
-    [{"content-encoding", coding} | headers]
   end
 
   defp content_length_header(length) when is_integer(length) do
@@ -113,17 +104,15 @@ defmodule Flux.HTTP.Response do
   end
 
   defp add_headers(response, []) do
-    response
+    [response | ["\r\n"]]
   end
 
-  defp add_body(response, _, :head), do: [response | "\r\n"]
+  defp add_body(response, _, :head), do: response
 
-  defp add_body(reponse, nil, _) do
-    [reponse | ["\r\n"]]
-  end
+  defp add_body(response, nil, _), do: response
 
   defp add_body(reponse, body, _) do
-    [reponse | ["\r\n", body]]
+    [reponse | body]
   end
 
   # 1×× Informational
