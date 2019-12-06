@@ -3,91 +3,92 @@ defmodule Flux.HTTP.Parser do
 
   @supported_versions ~w(HTTP/1.1)
 
-  @spec parse(Flux.HTTP.state(), String.t()) :: Flux.state()
+  @spec parse(Flux.Conn.t(), String.t()) :: Flux.Conn.t() | {:error, term}
+  @spec parse(Flux.Conn.t(), String.t(), list) :: Flux.Conn.t()
 
-  def parse(state, data, acc \\ [])
+  def parse(conn, data, acc \\ [])
 
-  def parse(%Conn{method: nil} = state, data, nil) do
-    optimistic_parse_method(data, state)
+  def parse(%Conn{method: nil} = conn, data, nil) do
+    optimistic_parse_method(data, conn)
   end
 
-  def parse(%Conn{method: nil} = state, data, acc) do
-    parse_method(data, state, acc)
+  def parse(%Conn{method: nil} = conn, data, acc) do
+    parse_method(data, conn, acc)
   end
 
-  def parse(%Conn{uri: nil} = state, data, acc) do
-    parse_uri(data, state, acc)
+  def parse(%Conn{uri: nil} = conn, data, acc) do
+    parse_uri(data, conn, acc)
   end
 
-  def parse(%Conn{query: nil} = state, data, acc) do
-    parse_query(data, state, acc)
+  def parse(%Conn{query: nil} = conn, data, acc) do
+    parse_query(data, conn, acc)
   end
 
-  def parse(%Conn{version: nil} = state, data, acc) do
-    parse_version(data, state, acc)
+  def parse(%Conn{version: nil} = conn, data, acc) do
+    parse_version(data, conn, acc)
   end
 
-  def parse(%Conn{req_buffer: nil} = state, data, acc) do
-    parse_headers(data, state, acc)
+  def parse(%Conn{req_buffer: nil} = conn, data, acc) do
+    parse_headers(data, conn, acc)
   end
 
-  defp optimistic_parse_method(<<"GET ", rest::binary>>, %Conn{} = state) do
-    parse_uri(rest, %{state | method: :get})
+  defp optimistic_parse_method(<<"GET ", rest::binary>>, %Conn{} = conn) do
+    parse_uri(rest, %{conn | method: :get})
   end
 
-  defp optimistic_parse_method(<<"HEAD ", rest::binary>>, %Conn{} = state) do
-    parse_uri(rest, %{state | method: :head})
+  defp optimistic_parse_method(<<"HEAD ", rest::binary>>, %Conn{} = conn) do
+    parse_uri(rest, %{conn | method: :head})
   end
 
-  defp optimistic_parse_method(<<"POST ", rest::binary>>, %Conn{} = state) do
-    parse_uri(rest, %{state | method: :post})
+  defp optimistic_parse_method(<<"POST ", rest::binary>>, %Conn{} = conn) do
+    parse_uri(rest, %{conn | method: :post})
   end
 
-  defp optimistic_parse_method(<<"OPTIONS ", rest::binary>>, %Conn{} = state) do
-    parse_uri(rest, %{state | method: :options})
+  defp optimistic_parse_method(<<"OPTIONS ", rest::binary>>, %Conn{} = conn) do
+    parse_uri(rest, %{conn | method: :options})
   end
 
-  defp optimistic_parse_method(<<"PUT ", rest::binary>>, %Conn{} = state) do
-    parse_uri(rest, %{state | method: :put})
+  defp optimistic_parse_method(<<"PUT ", rest::binary>>, %Conn{} = conn) do
+    parse_uri(rest, %{conn | method: :put})
   end
 
-  defp optimistic_parse_method(<<"DELETE ", rest::binary>>, %Conn{} = state) do
-    parse_uri(rest, %{state | method: :delete})
+  defp optimistic_parse_method(<<"DELETE ", rest::binary>>, %Conn{} = conn) do
+    parse_uri(rest, %{conn | method: :delete})
   end
 
-  defp optimistic_parse_method(<<"TRACE ", rest::binary>>, %Conn{} = state) do
-    parse_uri(rest, %{state | method: :trace})
+  defp optimistic_parse_method(<<"TRACE ", rest::binary>>, %Conn{} = conn) do
+    parse_uri(rest, %{conn | method: :trace})
   end
 
-  defp optimistic_parse_method(<<"CONNECT ", rest::binary>>, %Conn{} = state) do
-    parse_uri(rest, %{state | method: :connect})
+  defp optimistic_parse_method(<<"CONNECT ", rest::binary>>, %Conn{} = conn) do
+    parse_uri(rest, %{conn | method: :connect})
   end
 
-  defp optimistic_parse_method(data, %Conn{} = state) do
-    parse_method(data, state)
+  defp optimistic_parse_method(data, %Conn{} = conn) do
+    parse_method(data, conn)
   end
 
-  defp parse_method(data, state, acc \\ [])
+  defp parse_method(data, conn, acc \\ [])
 
-  defp parse_method("", %Conn{} = state, acc) do
-    {:incomplete, state, acc}
+  defp parse_method("", %Conn{} = conn, acc) do
+    {:incomplete, conn, acc}
   end
 
-  defp parse_method(<<" ", rest::binary>>, %Conn{} = state, acc) do
+  defp parse_method(<<" ", rest::binary>>, %Conn{} = conn, acc) do
     acc
     |> IO.iodata_to_binary()
     |> atomize_method()
     |> case do
       {:ok, method} ->
-        parse_uri(rest, %{state | method: method})
+        parse_uri(rest, %{conn | method: method})
 
       {:error, :unsupported_method} ->
-        {:error, {:unsupported_method, IO.iodata_to_binary(acc), state}}
+        {:error, {:unsupported_method, IO.iodata_to_binary(acc), conn}}
     end
   end
 
-  defp parse_method(<<head::binary-size(1), rest::binary>>, %Conn{} = state, acc) do
-    parse_method(rest, state, [acc | head])
+  defp parse_method(<<head::binary-size(1), rest::binary>>, %Conn{} = conn, acc) do
+    parse_method(rest, conn, [acc | head])
   end
 
   method_enumeration = [
@@ -109,153 +110,158 @@ defmodule Flux.HTTP.Parser do
     {:error, :unsupported_method}
   end
 
-  defp parse_uri(data, state, acc \\ [])
+  defp parse_uri(data, conn, acc \\ [])
 
-  defp parse_uri("", %Conn{} = state, acc) do
-    {:incomplete, state, acc}
+  defp parse_uri("", %Conn{} = conn, acc) do
+    {:incomplete, conn, acc}
   end
 
-  defp parse_uri(<<" ", rest::binary>>, %Conn{} = state, acc),
-    do: parse_version(rest, %{state | uri: IO.iodata_to_binary(acc), query: ""})
+  defp parse_uri(<<" ", rest::binary>>, %Conn{} = conn, acc),
+    do: parse_version(rest, %{conn | uri: IO.iodata_to_binary(acc), query: ""})
 
-  defp parse_uri(<<"?", rest::binary>>, %Conn{} = state, acc),
-    do: parse_query(rest, %{state | uri: IO.iodata_to_binary(acc)})
+  defp parse_uri(<<"?", rest::binary>>, %Conn{} = conn, acc),
+    do: parse_query(rest, %{conn | uri: IO.iodata_to_binary(acc)})
 
-  defp parse_uri(<<head::binary-size(1), rest::binary>>, %Conn{} = state, acc),
-    do: parse_uri(rest, state, [acc | head])
+  defp parse_uri(<<head::binary-size(1), rest::binary>>, %Conn{} = conn, acc),
+    do: parse_uri(rest, conn, [acc | head])
 
-  defp parse_query(data, state, acc \\ [])
+  defp parse_query(data, conn, acc \\ [])
 
-  defp parse_query("", %Conn{} = state, acc) do
-    {:incomplete, state, acc}
+  defp parse_query("", %Conn{} = conn, acc) do
+    {:incomplete, conn, acc}
   end
 
-  defp parse_query(<<" ", rest::binary>>, %Conn{} = state, acc),
-    do: parse_version(rest, %{state | query: IO.iodata_to_binary(acc)})
+  defp parse_query(<<" ", rest::binary>>, %Conn{} = conn, acc),
+    do: parse_version(rest, %{conn | query: IO.iodata_to_binary(acc)})
 
-  defp parse_query(<<head::binary-size(1), rest::binary>>, %Conn{} = state, acc),
-    do: parse_query(rest, state, [acc | head])
+  defp parse_query(<<head::binary-size(1), rest::binary>>, %Conn{} = conn, acc),
+    do: parse_query(rest, conn, [acc | head])
 
   # TODO specifically look for the pattern HTTP/ in parsing
-  defp parse_version(data, state, acc \\ [])
+  defp parse_version(data, conn, acc \\ [])
 
-  defp parse_version("", %Conn{} = state, acc) do
-    {:incomplete, state, acc}
+  defp parse_version("", %Conn{} = conn, acc) do
+    {:incomplete, conn, acc}
   end
 
-  defp parse_version(<<"\n", rest::binary>>, %Conn{} = state, [acc | "\r"]) do
-    handle_version(rest, IO.iodata_to_binary(acc), state)
+  defp parse_version(<<"\n", rest::binary>>, %Conn{} = conn, [acc | "\r"]) do
+    handle_version(rest, IO.iodata_to_binary(acc), conn)
   end
 
-  defp parse_version(<<head::binary-size(1), rest::binary>>, %Conn{} = state, acc) do
-    parse_version(rest, state, [acc | head])
+  defp parse_version(<<head::binary-size(1), rest::binary>>, %Conn{} = conn, acc) do
+    parse_version(rest, conn, [acc | head])
   end
 
-  defp handle_version(data, version, state) when version in @supported_versions do
-    parse_headers(data, %{state | version: version})
+  defp handle_version(data, version, conn) when version in @supported_versions do
+    parse_headers(data, %{conn | version: version})
   end
 
-  defp handle_version(_, version, state) do
-    {:error, {:unsupported_version, version, state}}
+  defp handle_version(_, version, conn) do
+    {:error, {:unsupported_version, version, conn}}
   end
 
-  defp parse_headers(data, state, acc \\ {[], nil, nil})
+  defp parse_headers(data, conn, acc \\ {[], nil, nil})
 
-  defp parse_headers(<<"\r\n", rest::binary>>, state, {header_acc, nil, nil}) do
-    handle_complete_headers(rest, state, header_acc)
+  defp parse_headers(<<"\r\n", rest::binary>>, conn, {header_acc, nil, nil}) do
+    handle_complete_headers(rest, conn, header_acc)
   end
 
-  defp parse_headers(<<"\n", rest::binary>>, state, {header_acc, [_ | "\r"], nil}) do
-    handle_complete_headers(rest, state, header_acc)
+  defp parse_headers(<<"\n", rest::binary>>, conn, {header_acc, [_ | "\r"], nil}) do
+    handle_complete_headers(rest, conn, header_acc)
   end
 
-  defp parse_headers("", state, acc) do
-    {:incomplete, state, acc}
+  defp parse_headers("", conn, acc) do
+    {:incomplete, conn, acc}
   end
 
-  defp parse_headers(data, state, {header_acc, nil, nil}) do
-    parse_header_key(data, state, header_acc, [])
+  defp parse_headers(data, conn, {header_acc, nil, nil}) do
+    parse_header_key(data, conn, header_acc, [])
   end
 
-  defp parse_headers(data, state, {header_acc, key_acc, nil}) do
-    parse_header_key(data, state, header_acc, key_acc)
+  defp parse_headers(data, conn, {header_acc, key_acc, nil}) do
+    parse_header_key(data, conn, header_acc, key_acc)
   end
 
-  defp parse_headers(data, state, {header_acc, key_acc, []}) do
-    trim_header_value(data, state, header_acc, key_acc)
+  defp parse_headers(data, conn, {header_acc, key_acc, []}) do
+    trim_header_value(data, conn, header_acc, key_acc)
   end
 
-  defp parse_headers(data, state, {header_acc, key_acc, val_acc}) do
-    parse_header_value(data, state, header_acc, key_acc, val_acc)
+  defp parse_headers(data, conn, {header_acc, key_acc, val_acc}) do
+    parse_header_value(data, conn, header_acc, key_acc, val_acc)
   end
 
-  defp parse_header_key(<<"\n", rest::binary>>, state, {header_acc, _key_acc, nil}, [_ | "\r"]) do
-    handle_complete_headers(rest, state, header_acc)
+  defp parse_header_key(<<"\n", rest::binary>>, conn, {header_acc, _key_acc, nil}, [_ | "\r"]) do
+    handle_complete_headers(rest, conn, header_acc)
   end
 
-  defp parse_header_key(<<":", rest::binary>>, %Conn{} = state, header_acc, key_acc) do
-    trim_header_value(rest, state, header_acc, key_acc)
+  defp parse_header_key(<<":", rest::binary>>, %Conn{} = conn, header_acc, key_acc) do
+    trim_header_value(rest, conn, header_acc, key_acc)
   end
 
-  defp parse_header_key("", %Conn{} = state, header_acc, key_acc) do
-    {:incomplete, state, {header_acc, key_acc, nil}}
+  defp parse_header_key("", %Conn{} = conn, header_acc, key_acc) do
+    {:incomplete, conn, {header_acc, key_acc, nil}}
   end
 
   defp parse_header_key(
          <<head::binary-size(1), rest::binary>>,
-         %Conn{} = state,
+         %Conn{} = conn,
          header_acc,
          key_acc
        ) do
-    parse_header_key(rest, state, header_acc, [key_acc | head])
+    parse_header_key(rest, conn, header_acc, [key_acc | head])
   end
 
-  def trim_header_value("", state, header_acc, key_acc) do
-    {:incomplete, state, {header_acc, key_acc, []}}
+  def trim_header_value("", conn, header_acc, key_acc) do
+    {:incomplete, conn, {header_acc, key_acc, []}}
   end
 
-  def trim_header_value(<<" ", rest::binary>>, state, header_acc, key_acc) do
-    trim_header_value(rest, state, header_acc, key_acc)
+  def trim_header_value(<<" ", rest::binary>>, conn, header_acc, key_acc) do
+    trim_header_value(rest, conn, header_acc, key_acc)
   end
 
-  def trim_header_value(data, state, header_acc, key_acc) do
-    parse_header_value(data, state, header_acc, key_acc, [])
+  def trim_header_value(data, conn, header_acc, key_acc) do
+    parse_header_value(data, conn, header_acc, key_acc, [])
   end
 
-  defp parse_header_value(<<"\r\n", rest::binary>>, %Conn{} = state, header_acc, key_acc, val_acc) do
-    handle_complete_header(rest, state, header_acc, key_acc, val_acc)
+  defp parse_header_value(<<"\r\n", rest::binary>>, %Conn{} = conn, header_acc, key_acc, val_acc) do
+    handle_complete_header(rest, conn, header_acc, key_acc, val_acc)
   end
 
-  defp parse_header_value(<<"\n", rest::binary>>, %Conn{} = state, header_acc, key_acc, [
+  defp parse_header_value(<<"\n", rest::binary>>, %Conn{} = conn, header_acc, key_acc, [
          val_acc | "\r"
        ]) do
-    handle_complete_header(rest, state, header_acc, key_acc, val_acc)
+    handle_complete_header(rest, conn, header_acc, key_acc, val_acc)
   end
 
-  defp parse_header_value("", %Conn{} = state, header_acc, key_acc, val_acc) do
-    {:incomplete, state, {header_acc, key_acc, val_acc}}
+  defp parse_header_value("", %Conn{} = conn, header_acc, key_acc, val_acc) do
+    {:incomplete, conn, {header_acc, key_acc, val_acc}}
   end
 
   defp parse_header_value(
          <<head::binary-size(1), rest::binary>>,
-         %Conn{} = state,
+         %Conn{} = conn,
          header_acc,
          key_acc,
          val_acc
        ) do
-    parse_header_value(rest, state, header_acc, key_acc, [val_acc | head])
+    parse_header_value(rest, conn, header_acc, key_acc, [val_acc | head])
   end
 
-  defp handle_complete_header(data, state, header_acc, key_acc, val_acc) do
-    key = IO.iodata_to_binary(key_acc)
-    val = IO.iodata_to_binary(val_acc)
+  defp handle_complete_header(data, conn, header_acc, key_acc, val_acc) do
+    # https://hexdocs.pm/plug/Plug.Conn.html#module-request-fields
+    # Downcased because in docs above, quote: "Note all headers will be downcased"
+    key = IO.iodata_to_binary(key_acc) |> String.downcase()
+    val = IO.iodata_to_binary(val_acc) |> String.downcase()
     # Move this into a callback variable passed in from Flux.HTTP that defaults to Headers
-    # Flux.HTTP.Headers.handle_header(state, downcased_key, downcased_val)
-    # TODO metaprogram all possible downcase possibilites in headers
-    parse_headers(data, state, {[{key, val} | header_acc], nil, nil})
+
+    parse_headers(
+      data,
+      Flux.HTTP.Headers.handle_header(conn, key, val),
+      {[{key, val} | header_acc], nil, nil}
+    )
   end
 
-  defp handle_complete_headers(data, state, header_acc) do
-    %{state | req_headers: header_acc, req_buffer: data}
+  defp handle_complete_headers(data, conn, header_acc) do
+    %{conn | req_headers: header_acc, req_buffer: data}
   end
 end
