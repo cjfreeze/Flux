@@ -23,23 +23,14 @@ defmodule Flux.Test.Endpoint do
       |> elem(1)
       |> String.to_integer()
 
-    conn
-    |> Conn.put_status(code)
-    |> Conn.put_resp_body("")
-    |> HTTP.send_response()
+    HTTP.send_response(conn, code, [], "")
   end
 
   def call(%{method: :POST, req_body: body} = conn) do
-    conn
-    |> Conn.put_status(200)
-    |> Conn.put_resp_body(body)
-    |> HTTP.send_response()
+    HTTP.send_response(conn, 200, [], body)
   end
 
   def call(conn) do
-    conn
-    |> Conn.put_status(200)
-    |> Conn.put_resp_body("Test")
-    |> HTTP.send_response()
+    HTTP.send_response(conn, 200, [], "Test")
   end
 end

@@ -1,8 +1,11 @@
 defmodule Flux.Conn do
+  alias Flux.Conn
+
   defstruct parent: nil,
             ref: nil,
             socket: nil,
             transport: nil,
+            handler: nil,
             opts: [],
             method: nil,
             status: 200,
@@ -14,7 +17,8 @@ defmodule Flux.Conn do
             peer: nil,
             remote_ip: nil,
             req_headers: [],
-            req_body: nil,
+            req_buffer: nil,
+            req_state: nil,
             keep_alive: false,
             resp_headers: [],
             resp_body: nil,
@@ -24,7 +28,10 @@ defmodule Flux.Conn do
             accept_charset: %{},
             accept_language: %{},
             upgrade: nil,
-            resp_type: :normal
+            transfer_coding: nil,
+            content_length: nil,
+            resp_type: :normal,
+            private: %{}
 
   @typedoc "The state of a connection."
   @type t :: %__MODULE__{
@@ -32,6 +39,7 @@ defmodule Flux.Conn do
           ref: identifier,
           socket: pid,
           transport: atom,
+          handler: atom,
           opts: keyword,
           method: atom,
           status: integer,
@@ -46,13 +54,16 @@ defmodule Flux.Conn do
           resp_headers: [{iodata, iodata}],
           resp_body: iodata,
           request: iodata,
-          req_body: iodata,
+          req_buffer: iodata,
           accept_encoding: %{coding => qvalue},
           accept: %{mimetype => qvalue},
           accept_charset: %{charset => qvalue},
           accept_language: %{language => qvalue},
           upgrade: atom,
-          resp_type: atom
+          transfer_coding: atom,
+          content_length: integer,
+          resp_type: atom,
+          private: map
         }
 
   @type coding :: binary
@@ -100,7 +111,7 @@ defmodule Flux.Conn do
     read_timeout: 15_000
   }
 
-  def read_body(%Flux.Conn{req_body: body} = conn, opts) do
+  def read_body(%Flux.Conn{req_buffer: body} = conn, opts) do
     body
     |> do_read_body(Enum.into(opts, @default_read_opts))
     |> return_read_body(conn)
@@ -118,4 +129,12 @@ defmodule Flux.Conn do
   defp return_read_body({body, ""}, conn), do: {:ok, body, conn}
   defp return_read_body({body, rest}, conn), do: {:more, body, %{conn | req_body: rest}}
   defp return_read_body(:error, conn), do: {:error, conn}
+
+  def put_private(%Conn{private: private} = conn, key, val) do
+    %{conn | private: Map.put(private, key, val)}
+  end
+
+  def get_private(%Conn{private: private}, key) do
+    Map.get(private, key)
+  end
 end

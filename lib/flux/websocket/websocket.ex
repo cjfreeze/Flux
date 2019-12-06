@@ -115,18 +115,16 @@ defmodule Flux.Websocket do
   def handshake(conn, http_conn) do
     http_conn
     |> put_handshake_headers(conn)
-    |> Map.put(:status, 101)
     |> Map.put(:resp_type, :raw)
-    |> HTTP.send_response()
+    |> HTTP.send_response(101, [], "")
 
     conn
   end
 
   defp fail(http_conn) do
     http_conn
-    |> Map.put(:status, 403)
-    |> Map.put(:resp_type, :raw)
-    |> HTTP.send_response()
+    |> Map.put(:resp_type, :error)
+    |> HTTP.send_response(403, [], "")
   end
 
   defp put_handshake_headers(%{resp_headers: resp_headers} = http_conn, conn) do
