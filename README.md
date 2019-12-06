@@ -2,6 +2,5 @@
 
 Flux is a webserver written in pure Elixir.
 
-## Installation
-
-Clone the repo via `git clone` and then run via `mix run --no-halt`
+## How to Use
+This section is on my TODO list, but if you still want to try, check out [this repo!](https://github.com/cjfreeze/flux_phoenix)
