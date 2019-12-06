@@ -18,6 +18,7 @@ defmodule Flux.Conn do
             remote_ip: nil,
             req_headers: [],
             req_buffer: nil,
+            req_state: nil,
             keep_alive: false,
             resp_headers: [],
             resp_body: nil,
