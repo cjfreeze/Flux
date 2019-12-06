@@ -157,31 +157,47 @@ defmodule Flux.HTTP do
   end
 
   def do_read_request_body(conn, length, read_length, read_timeout) do
-    with {:ok, read_from_buffer, conn} <- read_buffer(conn, length),
+    with {:ok, read_from_buffer, amount_read, conn} <- read_buffer(conn, length),
          {:ok, read, conn} <-
-           read_socket(conn, length, read_length, read_timeout, read_from_buffer) do
+           read_socket(conn, length - amount_read, read_length, read_timeout, read_from_buffer) do
       {:ok, read, conn}
     else
       {:more, read, conn} ->
         {:more, read, conn}
+
+      {:error, _} = error ->
+        error
     end
   end
 
-  defp read_buffer(%{req_buffer: nil} = conn, _length), do: {:ok, "", conn}
+  defp read_buffer(%{req_buffer: nil} = conn, _length), do: {:ok, "", 0, conn}
 
   defp read_buffer(conn, length) do
-    read_amount = if length > conn.content_length, do: conn.content_length, else: length
-    {read, rest} = String.split_at(conn.req_buffer, read_amount)
-    read_amount = byte_size(read)
+    amount_to_read = if length > conn.content_length, do: conn.content_length, else: length
+    {read, rest, amount_not_read} = do_read_buffer(conn.req_buffer, amount_to_read)
+    amount_read = amount_to_read - amount_not_read
 
-    case byte_size(rest) do
-      0 ->
-        {:ok, read, %{conn | req_buffer: "", content_length: conn.content_length - read_amount}}
+    case rest do
+      "" ->
+        {:ok, read, amount_read,
+         %{conn | req_buffer: "", content_length: conn.content_length - amount_read}}
 
       _ ->
         {:more, read,
-         %{conn | req_buffer: rest, content_length: conn.content_length - read_amount}}
+         %{conn | req_buffer: rest, content_length: conn.content_length - amount_read}}
     end
+  end
+
+  defp do_read_buffer(buffer, read_amount, read_buffer \\ [])
+
+  defp do_read_buffer("", read_amount, read_buffer),
+    do: {IO.iodata_to_binary(read_buffer), "", read_amount}
+
+  defp do_read_buffer(buffer, 0, read_buffer),
+    do: {IO.iodata_to_binary(read_buffer), buffer, 0}
+
+  defp do_read_buffer(<<head::binary-size(1), rest::binary>>, read_amount, read_buffer) do
+    do_read_buffer(rest, read_amount - 1, [read_buffer | head])
   end
 
   defp read_socket(%{content_length: cl} = conn, 0, _rl, _rt, buffer) when cl > 0,
@@ -192,16 +208,23 @@ defmodule Flux.HTTP do
 
   defp read_socket(%{content_length: cl} = conn, length, read_length, read_timeout, buffer) do
     read_amount = determine_read_amount(cl, length, read_length)
-    new_buffer = buffer <> conn.transport.read(conn.socket, read_amount, read_timeout)
-    new_conn = %{conn | content_length: cl - read_amount}
 
-    read_socket(
-      new_conn,
-      length - read_amount,
-      read_length,
-      read_timeout,
-      new_buffer
-    )
+    case conn.transport.read(conn.socket, read_amount, read_timeout) do
+      {:ok, packet} ->
+        new_buffer = buffer <> packet
+        new_conn = %{conn | content_length: cl - read_amount}
+
+        read_socket(
+          new_conn,
+          length - read_amount,
+          read_length,
+          read_timeout,
+          new_buffer
+        )
+
+      {:error, _} = error ->
+        error
+    end
   end
 
   defp determine_read_amount(content_length, length, read_length) do
