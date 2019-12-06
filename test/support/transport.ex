@@ -12,8 +12,13 @@ defmodule Flux.Support.Transport do
   def read(agent, length, _) do
     Agent.get_and_update(
       agent,
-      fn buffer -> String.split_at(buffer, length) end
+      fn buffer ->
+        <<read::binary-size(length), rest::binary>> = buffer
+        {{:ok, read}, rest}
+      end
     )
+  rescue
+    _ -> {:error, :timeout}
   end
 
   def set_opts(socket, _), do: {:ok, socket}
