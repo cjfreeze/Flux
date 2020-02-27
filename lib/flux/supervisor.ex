@@ -8,10 +8,7 @@ defmodule Flux.Supervisor do
   def start_link(opts) do
     pool = Keyword.get(opts, :pool, Flux.Pool)
 
-    opts =
-      opts
-      |> Keyword.put_new(:transport, Flux.Pool.Transport.TCP)
-      |> Keyword.put_new(:handler, Flux.HTTP)
+    opts = Keyword.put_new(opts, :transport, Flux.Pool.Transport.TCP)
 
     children = [
       {pool, opts}

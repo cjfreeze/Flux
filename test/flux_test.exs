@@ -4,11 +4,17 @@ defmodule FluxTest do
 
   setup_all _flux do
     start_supervised(
-      {Flux.Handler, [scheme: :http, port: 4567, otp_app: :flux, endpoint: Flux.Test.Endpoint]}
+      {Flux,
+       [
+         scheme: :http,
+         port: 4567,
+         otp_app: :flux,
+         handler: Flux.Test.Endpoint
+       ]}
     )
 
     HTTPoison.start()
-    %{flux: Flux}
+    %{flux: Flux, host: "localhost:4567"}
   end
 
   describe "Flux" do
@@ -27,11 +33,11 @@ defmodule FluxTest do
       assert byte_size(body) == String.to_integer(content_length_value)
     end
 
-    test "responds to accept-encoding correctly", %{flux: _flux} do
+    test "responds to accept-encoding correctly", %{flux: _flux, host: host} do
       {:ok, %{body: encoded_body}} =
         Client.request(
           :get,
-          "localhost:4000",
+          host,
           "",
           [{"accept-encoding", "gzip;q=1.0, identity; q=0.5, *;q=0"}],
           []
@@ -41,39 +47,43 @@ defmodule FluxTest do
       assert :zlib.gunzip(encoded_body) == body
     end
 
-    test "sends a file correctly", %{flux: _flux} do
+    test "sends a file correctly", %{flux: _flux, host: host} do
       content = "Hello World!"
-      assert {:ok, %{body: body}} = Client.request(:get, "localhost:4000/file", "", [], [])
+      file = System.tmp_dir!() <> "file.txt"
+      File.write!(file, content)
+      assert {:ok, %{body: body}} = Client.request(:post, "#{host}/file", file)
       assert body == content
-
-      assert {:ok, %{body: offset_body}} =
-               Client.request(:get, "localhost:4000/file_offset", "", [], [])
-
-      assert offset_body == String.slice(content, 6..10)
-
-      assert {:ok, %{body: offset_body}} =
-               Client.request(:get, "localhost:4000/file_offset", "", [], [])
-
-      assert offset_body == String.slice(content, 6..10)
     end
 
-    test "handles keep-alive correctly", %{flux: _flux} do
-      assert {:ok, %{body: _body, headers: headers}} =
-               Client.request(:get, "localhost:4000", "", [{"connection", "keep-alive"}], [])
+    test "sends a file with offset correctly", %{flux: _flux, host: host} do
+      content = "Hello World!"
+      file = System.tmp_dir!() <> "file.txt"
+      File.write!(file, content)
+      body = :erlang.term_to_binary({file, 5})
+      assert {:ok, %{body: offset_body}} = Client.request(:post, "#{host}/file_offset", body)
 
-      assert {"connection", "keep-alive"} = get_header(headers, "connection")
-
-      Client.request(:get, "localhost:4000", "", [{"connection", "keep-alive"}], [])
+      assert offset_body == "Hello W"
     end
 
-    test "handles HTTP POST correctly" do
+    test "sends a file with offset and length correctly", %{host: host} do
+      content = "Hello World!"
+      file = System.tmp_dir!() <> "file.txt"
+      File.write!(file, content)
+      body = :erlang.term_to_binary({file, 4, 4})
+
+      assert {:ok, %{body: offset_body}} =
+               Client.request(:post, "#{host}/file_offset_length", body)
+
+      assert offset_body == "o Wo"
+    end
+
+    test "handles HTTP POST correctly", %{host: host} do
       body = "flux post test body"
 
-      assert {:ok, %{body: ^body, headers: headers}} =
-               Client.request(:post, "localhost:4000", body, [{"connection", "keep-alive"}], [])
+      assert {:ok, %{body: ^body}} = Client.request(:post, host, body)
     end
 
-    test "handles all statuses correctly" do
+    test "handles all statuses correctly", %{host: host} do
       [
         100..102,
         200..208,
@@ -99,10 +109,8 @@ defmodule FluxTest do
         assert {:ok, %{status_code: ^status_code} = resp} =
                  Client.request(
                    :post,
-                   "localhost:4000/status",
-                   "",
-                   [{"x-put-status", "#{status_code}"}],
-                   []
+                   "#{host}/status",
+                   "#{status_code}"
                  )
       end)
     end

@@ -22,7 +22,7 @@ defmodule Flux.HTTP.Response do
         body
       ) do
     with {:resp_type, :normal} <- {:resp_type, conn.resp_type},
-         {:ok, coding} <- Encoder.which_coding(conn.accepted_codings),
+         {:ok, coding} <- Encoder.which_coding(conn.accept_encoding),
          {:ok, encoded_body} <- Encoder.encode(coding, body) do
       headers = [{"content-encoding", coding} | headers]
 

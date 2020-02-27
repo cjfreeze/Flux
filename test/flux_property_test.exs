@@ -5,7 +5,7 @@ defmodule FluxPropertyTest do
 
   setup_all _flux do
     start_supervised(
-      {Flux.Handler, [scheme: :http, port: 4000, otp_app: :flux, endpoint: Flux.Test.Endpoint]}
+      {Flux, [scheme: :http, port: 4000, otp_app: :flux, handler: Flux.Test.Endpoint]}
     )
 
     Application.load(:stream_data)
@@ -15,22 +15,21 @@ defmodule FluxPropertyTest do
 
   describe "Flux" do
     test "handles HTTP POST correctly" do
-      check all body <- StreamData.binary() do
+      check all(body <- StreamData.binary()) do
         assert {:ok, %{body: ^body}} = Client.request(:post, "localhost:4000", body, [], [])
       end
     end
 
     test "returns valid content-length header with GET request", %{flux: _flux} do
-      check all body <- StreamData.binary() do
+      check all(body <- StreamData.string(:ascii)) do
         assert {:ok, %{headers: headers}} = Client.request(:post, "localhost:4000", body, [], [])
-
         assert {_, content_length} = List.keyfind(headers, "content-length", 0)
         assert byte_size(body) == String.to_integer(content_length)
       end
     end
 
     test "responds to accept-encoding correctly", %{flux: _flux} do
-      check all body <- StreamData.binary() do
+      check all(body <- StreamData.binary()) do
         {:ok, %{body: encoded_body}} =
           Client.request(
             :post,

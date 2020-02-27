@@ -146,8 +146,7 @@ defmodule Flux.HTTP do
   defp file_content_length(_size, _offset, length), do: length
 
   @doc """
-  This is my second time having to write this, thanks disk failures,
-  and thanks me for forgetting to regularly git push. I hate everything.
+  Reads the request body from the buffer or socket
   """
   def read_request_body(conn, length, read_length, read_timeout) do
     case conn.transfer_coding do

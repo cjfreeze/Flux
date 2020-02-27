@@ -1,36 +1,38 @@
 defmodule Flux.Test.Endpoint do
-  alias Flux.{
-    Conn,
-    HTTP
-  }
+  alias Flux.HTTP
 
-  def call(%{uri: ["/", "f", "i", "l", "e"]} = conn) do
-    conn
-    |> Conn.put_status(200)
-    |> HTTP.send_file("#{System.tmp_dir()}/file.txt", 0, :all)
+  def handle_request(conn, _opts) do
+    do_handle(conn)
   end
 
-  def call(%{uri: ["/", "f", "i", "l", "e", "_", "o", "f", "f", "s", "e", "t"]} = conn) do
-    conn
-    |> Conn.put_status(200)
-    |> HTTP.send_file("#{System.tmp_dir()}/file.txt", 6, 5)
+  defp do_handle(%{method: :post, uri: "/status"} = conn) do
+    {:ok, status, conn} = HTTP.read_request_body(conn, 1000, 1000, 1000)
+    HTTP.send_response(conn, String.to_integer(status), [], "")
   end
 
-  def call(%{uri: ["/", "s", "t", "a", "t", "u", "s"], req_headers: headers} = conn) do
-    code =
-      headers
-      |> List.keyfind("x-put-status", 0)
-      |> elem(1)
-      |> String.to_integer()
-
-    HTTP.send_response(conn, code, [], "")
+  defp do_handle(%{method: :post, uri: "/file"} = conn) do
+    {:ok, file, conn} = HTTP.read_request_body(conn, 1000, 1000, 1000)
+    HTTP.send_file(conn, 200, [], file)
   end
 
-  def call(%{method: :POST, req_body: body} = conn) do
+  defp do_handle(%{method: :post, uri: "/file_offset"} = conn) do
+    {:ok, term, conn} = HTTP.read_request_body(conn, 1000, 1000, 1000)
+    {file, offset} = :erlang.binary_to_term(term)
+    HTTP.send_file(conn, 200, [], file, offset)
+  end
+
+  defp do_handle(%{method: :post, uri: "/file_offset_length"} = conn) do
+    {:ok, term, conn} = HTTP.read_request_body(conn, 1000, 1000, 1000)
+    {file, offset, length} = :erlang.binary_to_term(term)
+    HTTP.send_file(conn, 200, [], file, offset, length)
+  end
+
+  defp do_handle(%{method: :post} = conn) do
+    {:ok, body, conn} = HTTP.read_request_body(conn, 1000, 1000, 1000)
     HTTP.send_response(conn, 200, [], body)
   end
 
-  def call(conn) do
-    HTTP.send_response(conn, 200, [], "Test")
+  defp do_handle(conn) do
+    HTTP.send_response(conn, 200, [], "test")
   end
 end

@@ -18,8 +18,11 @@ defmodule Flux.HTTP.Headers do
     %{conn | transfer_coding: coding}
   end
 
-  def_fuzzy_handle_header(conn, "content-length", length) do
-    %{conn | content_length: length}
+  def_fuzzy_handle_header(conn, "content-length", length_string) do
+    case Integer.parse(length_string) do
+      {length, _} -> %{conn | content_length: length}
+      _ -> conn
+    end
   end
 
   def handle_header(conn, "upgrade", "websocket"), do: %{conn | upgrade: :websocket}
